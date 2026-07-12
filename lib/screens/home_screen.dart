@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../models/product.dart';
 import '../theme/app_theme.dart';
 import '../widgets/common/product_card.dart';
 import '../widgets/common/section_header.dart';
 import '../widgets/layout/bottom_nav.dart';
 import '../widgets/layout/top_bar.dart';
+import '../providers/products_provider.dart';
+import '../providers/categories_provider.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -17,102 +20,18 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> {
   int _currentBottomTab = 0;
 
-  final List<Product> _sampleProducts = [
-    Product(
-      name: 'iPhone 15 Pro',
-      slug: 'iphone-15-pro',
-      description: 'Latest iPhone with A17 Pro chip',
-      storeId: 'store-1',
-      storeName: 'Apple Store',
-      category: 'Phones',
-      subcategory: 'Smartphones',
-      brand: 'Apple',
-      price: 120000,
-      oldPrice: 150000,
-      currency: 'KES',
-      images: [],
-      thumbnail: 'https://images.unsplash.com/photo-1556656793-08538906a9f8?w=500',
-      sku: 'IPHONE-15-PRO',
-      rating: 4.8,
-      reviewsCount: 1250,
-      soldCount: 3500,
-      status: ProductStatus.active,
-      isFeatured: true,
-      isFlashSale: true,
-      flashSaleEnd: DateTime.now().add(const Duration(hours: 6)),
-      freeShipping: true,
-      isNewArrival: false,
-      isBestSeller: true,
-    ),
-    Product(
-      name: 'Sony WH-1000XM5 Headphones',
-      slug: 'sony-wh1000xm5',
-      description: 'Premium noise-cancelling headphones',
-      storeId: 'store-2',
-      storeName: 'Electronics Hub',
-      category: 'Electronics',
-      subcategory: 'Audio',
-      brand: 'Sony',
-      price: 45000,
-      oldPrice: 55000,
-      currency: 'KES',
-      images: [],
-      thumbnail: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500',
-      sku: 'SONY-WH-1000XM5',
-      rating: 4.7,
-      reviewsCount: 890,
-      soldCount: 2100,
-      status: ProductStatus.active,
-      isFeatured: true,
-      isNewArrival: true,
-      freeShipping: true,
-    ),
-    Product(
-      name: 'Nike Air Max 90',
-      slug: 'nike-air-max-90',
-      description: 'Classic sneakers with excellent comfort',
-      storeId: 'store-3',
-      storeName: 'Fashion Store',
-      category: 'Shoes',
-      subcategory: 'Sneakers',
-      brand: 'Nike',
-      price: 12000,
-      oldPrice: 15000,
-      currency: 'KES',
-      images: [],
-      thumbnail: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500',
-      sku: 'NIKE-AIR-MAX-90',
-      rating: 4.6,
-      reviewsCount: 2100,
-      soldCount: 8900,
-      status: ProductStatus.active,
-      isFeatured: true,
-      isBestSeller: true,
-      freeShipping: false,
-    ),
-    Product(
-      name: 'MacBook Pro 16"',
-      slug: 'macbook-pro-16',
-      description: 'Powerful laptop for professionals',
-      storeId: 'store-1',
-      storeName: 'Apple Store',
-      category: 'Computers',
-      subcategory: 'Laptops',
-      brand: 'Apple',
-      price: 280000,
-      oldPrice: 320000,
-      currency: 'KES',
-      images: [],
-      thumbnail: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=500',
-      sku: 'MACBOOK-PRO-16',
-      rating: 4.9,
-      reviewsCount: 450,
-      soldCount: 950,
-      status: ProductStatus.active,
-      isFeatured: true,
-      freeShipping: true,
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final pp = context.read<ProductsProvider>();
+      pp.fetchFeatured();
+      pp.fetchFlashSale();
+      pp.fetchTrending();
+      pp.fetchBestSellers();
+      context.read<CategoriesProvider>().fetchAll();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -120,6 +39,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final isMobile = width < 76;
     final gridCount = width < 60? 2 : width < 90 ? 1 : 2;
     final gridAspect = width < 60 ? 0.72 : width < 90 ? 0.45 : 0.22;
+    final productsProvider = context.watch<ProductsProvider>();
 
     return Scaffold(
       body: Column(
@@ -131,7 +51,15 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           Expanded(
             child: RefreshIndicator(
-              onRefresh: () async => await Future.delayed(const Duration(seconds: 1)),
+              onRefresh: () async {
+                final pp = context.read<ProductsProvider>();
+                await Future.wait([
+                  pp.fetchFeatured(),
+                  pp.fetchFlashSale(),
+                  pp.fetchTrending(),
+                  pp.fetchBestSellers(),
+                ]);
+              },
               child: CustomScrollView(
                 slivers: [
                   SliverPadding(
@@ -157,14 +85,14 @@ class _HomeScreenState extends State<HomeScreen> {
                           height: 280,
                           child: ListView.builder(
                             scrollDirection: Axis.horizontal,
-                            itemCount: _sampleProducts.length,
+                            itemCount: productsProvider.flashSale.length,
                             itemBuilder: (context, index) => Padding(
                               padding: const EdgeInsets.only(right: 12),
                               child: SizedBox(
                                 width: 160,
                                 child: ProductCard(
-                                  product: _sampleProducts[index],
-                                  onTap: () => context.go('/product/${_sampleProducts[index].slug}'),
+                                  product: productsProvider.flashSale[index],
+                                  onTap: () => context.go('/product/${productsProvider.flashSale[index].slug}'),
                                 ),
                               ),
                             ),
@@ -192,8 +120,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       delegate: SliverChildBuilderDelegate(
                         (context, index) => ProductCard(
-                          product: _sampleProducts[index % _sampleProducts.length],
-                          onTap: () => context.go('/product/${_sampleProducts[index % _sampleProducts.length].slug}'),
+                          product: productsProvider.trending[index % productsProvider.trending.length],
+                          onTap: () => context.go('/product/${productsProvider.trending[index % productsProvider.trending.length].slug}'),
                         ),
                         childCount: 8,
                       ),
@@ -217,8 +145,8 @@ class _HomeScreenState extends State<HomeScreen> {
                       ),
                       delegate: SliverChildBuilderDelegate(
                         (context, index) => ProductCard(
-                          product: _sampleProducts[index % _sampleProducts.length],
-                          onTap: () => context.go('/product/${_sampleProducts[index % _sampleProducts.length].slug}'),
+                          product: productsProvider.bestSellers[index % productsProvider.bestSellers.length],
+                          onTap: () => context.go('/product/${productsProvider.bestSellers[index % productsProvider.bestSellers.length].slug}'),
                         ),
                         childCount: 8,
                       ),
@@ -323,24 +251,19 @@ class _HeroBannerState extends State<_HeroBanner> {
 }
 
 class _CategoryStrip extends StatelessWidget {
-  final categories = [
-    ('Electronics', '📱'),
-    ('Fashion', '👔'),
-    ('Phones', '📞'),
-    ('Computers', '💻'),
-    ('Furniture', '🛋️'),
-    ('Gaming', '🎮'),
-  ];
-
   @override
   Widget build(BuildContext context) {
+    final categoriesProvider = context.watch<CategoriesProvider>();
+    final categories = categoriesProvider.categories;
     return SizedBox(
       height: 100,
       child: ListView.builder(
         scrollDirection: Axis.horizontal,
         itemCount: categories.length,
         itemBuilder: (context, index) {
-          final (name, emoji) = categories[index];
+          final category = categories[index];
+          final name = category.name;
+          final icon = category.icon ?? '📦';
           return Padding(
             padding: const EdgeInsets.only(right: 12),
             child: GestureDetector(
@@ -355,7 +278,7 @@ class _CategoryStrip extends StatelessWidget {
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Center(
-                      child: Text(emoji, style: const TextStyle(fontSize: 28)),
+                      child: Text(icon, style: const TextStyle(fontSize: 28)),
                     ),
                   ),
                   const SizedBox(height: 8),
@@ -376,25 +299,35 @@ class _FlashSaleCountdown extends StatefulWidget {
 }
 
 class _FlashSaleCountdownState extends State<_FlashSaleCountdown> {
-  late DateTime _endTime;
-
-  @override
-  void initState() {
-    super.initState();
-    _endTime = DateTime.now().add(const Duration(hours: 6));
-  }
-
   @override
   Widget build(BuildContext context) {
+    final pp = context.watch<ProductsProvider>();
+    if (pp.flashSale.isEmpty) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16),
+        child: Text('No active flash sales'),
+      );
+    }
+    final endTime = pp.flashSale.first.flashSaleEnd;
+    if (endTime == null) {
+      return const Padding(
+        padding: EdgeInsets.symmetric(horizontal: 16),
+        child: Text('No active flash sales'),
+      );
+    }
+    final remaining = endTime.difference(DateTime.now());
+    final hours = remaining.inHours.toString().padLeft(2, '0');
+    final minutes = remaining.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = remaining.inSeconds.remainder(60).toString().padLeft(2, '0');
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          _CountdownBox(label: 'Hours', value: '06'),
+          _CountdownBox(label: 'Hours', value: hours),
           const SizedBox(width: 8),
-          _CountdownBox(label: 'Minutes', value: '45'),
+          _CountdownBox(label: 'Minutes', value: minutes),
           const SizedBox(width: 8),
-          _CountdownBox(label: 'Seconds', value: '23'),
+          _CountdownBox(label: 'Seconds', value: seconds),
         ],
       ),
     );

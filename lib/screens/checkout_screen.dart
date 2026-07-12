@@ -2,6 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../providers/cart_provider.dart';
+import '../providers/orders_provider.dart';
+import '../providers/auth_provider.dart';
+import '../models/order.dart';
 import '../theme/app_theme.dart';
 
 class CheckoutScreen extends StatefulWidget {
@@ -44,38 +47,101 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   void _placeOrder() async {
     setState(() => _processing = true);
-    
-    if (_selectedPayment == 'mpesa') {
-      // Show M-Pesa modal
-      showDialog(
-        context: context,
-        barrierDismissible: false,
-        builder: (context) => AlertDialog(
-          title: const Text('M-Pesa Payment'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              const Icon(Icons.phone_android, size: 48, color: AppTheme.primary),
-              const SizedBox(height: 16),
-              const Text('Check Your Phone'),
-              const SizedBox(height: 16),
-              const CircularProgressIndicator(),
-              const SizedBox(height: 16),
-              const Text('You will receive an STK push prompt on your phone'),
-            ],
+
+    try {
+      if (_selectedPayment == 'mpesa') {
+        // Show M-Pesa modal
+        showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (context) => AlertDialog(
+            title: const Text('M-Pesa Payment'),
+            content: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.phone_android, size: 48, color: AppTheme.primary),
+                const SizedBox(height: 16),
+                const Text('Check Your Phone'),
+                const SizedBox(height: 16),
+                const CircularProgressIndicator(),
+                const SizedBox(height: 16),
+                const Text('You will receive an STK push prompt on your phone'),
+              ],
+            ),
           ),
-        ),
+        );
+
+        await Future.delayed(const Duration(seconds: 3));
+        if (!mounted) return;
+        Navigator.of(context).pop();
+      }
+
+      // Build shipping address from form controllers
+      final shippingAddress = {
+        'name': _nameController.text,
+        'phone': _phoneController.text,
+        'area': _areaController.text,
+        'town': _townController.text,
+        'county': _countyController.text,
+      };
+
+      // Get authenticated user
+      final user = context.read<AuthProvider>().user;
+      if (user == null) {
+        throw Exception('User not authenticated');
+      }
+
+      // Map delivery method string to enum
+      final deliveryMethod = switch (_selectedDelivery) {
+        'boda' => DeliveryMethod.bodaExpress,
+        'pickup' => DeliveryMethod.pickup,
+        _ => DeliveryMethod.standard,
+      };
+
+      // Map payment method string to enum
+      final paymentMethod = switch (_selectedPayment) {
+        'card' => PaymentMethod.card,
+        'paypal' => PaymentMethod.paypal,
+        'cod' => PaymentMethod.cashOnDelivery,
+        _ => PaymentMethod.mpesa,
+      };
+
+      // Calculate shipping fee
+      final shippingFee = switch (_selectedDelivery) {
+        'boda' => 250.0,
+        'pickup' => 0.0,
+        _ => 150.0,
+      };
+
+      final ordersProvider = context.read<OrdersProvider>();
+      final cartProvider = context.read<CartProvider>();
+
+      final order = await ordersProvider.createOrder(
+        buyerId: user.id,
+        buyerName: user.name,
+        buyerEmail: user.email,
+        buyerPhone: user.phone,
+        cartItems: cartProvider.items,
+        shippingAddress: shippingAddress,
+        deliveryMethod: deliveryMethod,
+        paymentMethod: paymentMethod,
+        subtotal: cartProvider.subtotal,
+        shippingFee: shippingFee,
       );
 
-      await Future.delayed(const Duration(seconds: 3));
+      await cartProvider.clearCart();
       if (!mounted) return;
-      Navigator.of(context).pop();
+      context.go('/order-success?orderNumber=${order.orderNumber}');
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to place order: $error')),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _processing = false);
+      }
     }
-
-    setState(() => _processing = false);
-    await context.read<CartProvider>().clearCart();
-    if (!mounted) return;
-    context.go('/order-success');
   }
 
   @override

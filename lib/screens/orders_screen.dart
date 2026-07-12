@@ -1,6 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../models/order.dart';
+import '../providers/orders_provider.dart';
+import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
 
 class OrdersScreen extends StatefulWidget {
@@ -11,45 +14,35 @@ class OrdersScreen extends StatefulWidget {
 }
 
 class _OrdersScreenState extends State<OrdersScreen> {
-  final List<Order> orders = [
-    Order(
-      orderNumber: 'ORD-001',
-      buyerId: 'user-1',
-      buyerName: 'John Doe',
-      buyerEmail: 'john@example.com',
-      buyerPhone: '0700000000',
-      subtotal: 50000,
-      shippingFee: 150,
-      total: 50150,
-      status: OrderStatus.delivered,
-      paymentStatus: PaymentStatus.paid,
-      items: [{'name': 'iPhone 15 Pro', 'quantity': 1, 'price': 50000}],
-      timeline: [
-        {'status': 'Confirmed', 'timestamp': 'Jan 10, 2:30 PM'},
-        {'status': 'Packed', 'timestamp': 'Jan 10, 4:00 PM'},
-        {'status': 'Shipped', 'timestamp': 'Jan 11, 9:00 AM'},
-        {'status': 'Out for Delivery', 'timestamp': 'Jan 12, 8:00 AM'},
-        {'status': 'Delivered', 'timestamp': 'Jan 12, 5:30 PM'},
-      ],
-    ),
-    Order(
-      orderNumber: 'ORD-002',
-      buyerId: 'user-1',
-      buyerName: 'John Doe',
-      buyerEmail: 'john@example.com',
-      buyerPhone: '0700000000',
-      subtotal: 25000,
-      shippingFee: 150,
-      total: 25150,
-      status: OrderStatus.shipped,
-      paymentStatus: PaymentStatus.paid,
-      items: [{'name': 'Wireless Headphones', 'quantity': 1, 'price': 25000}],
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final user = context.read<AuthProvider>().user;
+      if (user != null) {
+        context.read<OrdersProvider>().fetchMyOrders(user.id);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
-    if (orders.isEmpty) {
+    final ordersProvider = context.watch<OrdersProvider>();
+
+    if (ordersProvider.isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => context.pop(),
+          ),
+          title: const Text('Orders'),
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (ordersProvider.orders.isEmpty) {
       return Scaffold(
         appBar: AppBar(
           leading: IconButton(
@@ -88,9 +81,9 @@ class _OrdersScreenState extends State<OrdersScreen> {
       ),
       body: ListView.builder(
         padding: const EdgeInsets.all(16),
-        itemCount: orders.length,
+        itemCount: ordersProvider.orders.length,
         itemBuilder: (context, index) {
-          final order = orders[index];
+          final order = ordersProvider.orders[index];
           final statusColor = _getStatusColor(order.status);
 
           return GestureDetector(

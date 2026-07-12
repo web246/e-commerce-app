@@ -3,6 +3,7 @@ enum ProductStatus { active, inactive, outOfStock, pendingReview }
 enum ProductCondition { newCondition, used, refurbished }
 
 class Product {
+  final String id;
   final String name;
   final String slug;
   final String description;
@@ -39,6 +40,7 @@ class Product {
   final ProductCondition condition;
 
   Product({
+    this.id = '',
     required this.name,
     required this.slug,
     required this.description,
@@ -77,6 +79,7 @@ class Product {
 
   factory Product.fromJson(Map<String, dynamic> json) {
     return Product(
+      id: json['id'] ?? '',
       name: json['name'] ?? '',
       slug: json['slug'] ?? '',
       description: json['description'] ?? '',
@@ -116,6 +119,7 @@ class Product {
 
   Map<String, dynamic> toJson() {
     return {
+      'id': id,
       'name': name,
       'slug': slug,
       'description': description,

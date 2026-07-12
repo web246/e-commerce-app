@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import '../models/cart_item.dart';
 import '../models/product.dart';
 import '../providers/cart_provider.dart';
+import '../providers/products_provider.dart';
 import '../theme/app_theme.dart';
 
 class ProductDetailScreen extends StatefulWidget {
@@ -20,7 +21,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
   bool _addedToCart = false;
   late AnimationController _controller;
 
-  final product = Product(
+  final _fallbackProduct = Product(
     name: 'Premium Wireless Headphones',
     slug: 'premium-wireless-headphones',
     description: 'Experience superior sound quality with our premium wireless headphones. Featuring active noise cancellation, 30-hour battery life, and premium comfort design.',
@@ -54,6 +55,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
   void initState() {
     super.initState();
     _controller = AnimationController(duration: const Duration(milliseconds: 600), vsync: this);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<ProductsProvider>().getProductById(widget.productId);
+    });
   }
 
   @override
@@ -63,9 +67,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
   }
 
   void _addToCart() {
+    final currentProduct = context.read<ProductsProvider>().selectedProduct ?? _fallbackProduct;
     final cartItem = CartItem(
-      key: product.sku,
-      product: product,
+      key: currentProduct.sku,
+      product: currentProduct,
       quantity: _quantity,
     );
     context.read<CartProvider>().addItem(cartItem);
@@ -80,6 +85,45 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
   @override
   Widget build(BuildContext context) {
     final isMobile = MediaQuery.of(context).size.width < 768;
+    final productsProvider = context.watch<ProductsProvider>();
+    if (productsProvider.isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => context.pop(),
+          ),
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+    if (productsProvider.errorMessage != null) {
+      return Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => context.pop(),
+          ),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Padding(
+                padding: const EdgeInsets.all(16),
+                child: Text(productsProvider.errorMessage!, textAlign: TextAlign.center),
+              ),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => context.pop(),
+                child: const Text('Go Back'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    final product = productsProvider.selectedProduct ?? _fallbackProduct;
     final discount = ((product.oldPrice! - product.price) / product.oldPrice! * 100).toInt();
 
     return Scaffold(
