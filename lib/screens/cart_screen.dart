@@ -23,7 +23,6 @@ class _CartScreenState extends State<CartScreen> {
   @override
   Widget build(BuildContext context) {
     final cartProvider = context.watch<CartProvider>();
-    final isMobile = MediaQuery.of(context).size.width < 768;
 
     if (cartProvider.items.isEmpty) {
       return Scaffold(
@@ -107,6 +106,8 @@ class _CartScreenState extends State<CartScreen> {
                               Text(
                                 item.product.storeName,
                                 style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.primary),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
                               ),
                               Text(
                                 item.product.name,
@@ -139,7 +140,6 @@ class _CartScreenState extends State<CartScreen> {
                                     onPressed: item.quantity > 1
                                         ? () => cartProvider.updateQuantity(item.key, item.quantity - 1)
                                         : null,
-                                    padding: EdgeInsets.zero,
                                   ),
                                   SizedBox(
                                     width: 24,
@@ -148,7 +148,6 @@ class _CartScreenState extends State<CartScreen> {
                                   IconButton(
                                     icon: const Icon(Icons.add, size: 16),
                                     onPressed: () => cartProvider.updateQuantity(item.key, item.quantity + 1),
-                                    padding: EdgeInsets.zero,
                                   ),
                                 ],
                               ),
@@ -157,7 +156,6 @@ class _CartScreenState extends State<CartScreen> {
                             IconButton(
                               icon: const Icon(Icons.delete_outline, color: AppTheme.destructive, size: 20),
                               onPressed: () => cartProvider.removeItem(item.key),
-                              padding: EdgeInsets.zero,
                             ),
                           ],
                         ),

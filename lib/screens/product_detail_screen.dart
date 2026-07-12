@@ -114,14 +114,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                   // Store
                   Row(
                     children: [
-                      Text(product.storeName, style: Theme.of(context).textTheme.titleLarge?.copyWith(color: AppTheme.primary)),
+                      Text(product.storeName, style: Theme.of(context).textTheme.titleLarge?.copyWith(color: AppTheme.primary), maxLines: 1, overflow: TextOverflow.ellipsis),
                       const SizedBox(width: 8),
                       const Icon(Icons.verified, color: Colors.blue, size: 16),
                     ],
                   ),
                   const SizedBox(height: 12),
                   // Title
-                  Text(product.name, style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold)),
+                  Text(product.name, style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis),
                   const SizedBox(height: 12),
                   // Rating
                   Row(
@@ -300,7 +300,7 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
-                        Text(e.key, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.mutedForeground)),
+                        Expanded(child: Text(e.key, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.mutedForeground))),
                         Text(e.value.toString(), style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
                       ],
                     ),

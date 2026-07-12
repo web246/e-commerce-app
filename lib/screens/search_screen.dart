@@ -18,6 +18,16 @@ class _SearchScreenState extends State<SearchScreen> {
   String _sortBy = 'relevance';
   bool _freeShippingOnly = false;
 
+  List<Product> get _filteredProducts {
+    final query = _searchController.text.toLowerCase().trim();
+    if (query.isEmpty) return _sampleProducts;
+    return _sampleProducts.where((p) =>
+      p.name.toLowerCase().contains(query) ||
+      p.storeName.toLowerCase().contains(query) ||
+      p.category.toLowerCase().contains(query)
+    ).toList();
+  }
+
   final List<Product> _sampleProducts = [
     Product(
       name: 'Premium Wireless Headphones',
@@ -145,22 +155,41 @@ class _SearchScreenState extends State<SearchScreen> {
                     ],
                   ),
                 ),
-                // Product Grid
+                // Product Grid / Empty State
                 Expanded(
-                  child: GridView.builder(
-                    padding: const EdgeInsets.all(16),
-                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                      crossAxisCount: gridCount,
-                      mainAxisSpacing: 16,
-                      crossAxisSpacing: 16,
-                      childAspectRatio: childAspectRatio,
-                    ),
-                    itemCount: _sampleProducts.length,
-                    itemBuilder: (context, index) => ProductCard(
-                      product: _sampleProducts[index],
-                      onTap: () => context.go('/product/${_sampleProducts[index].slug}'),
-                    ),
-                  ),
+                  child: _searchController.text.isNotEmpty && _filteredProducts.isEmpty
+                      ? Center(
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.search_off, size: 64, color: AppTheme.mutedForeground),
+                              const SizedBox(height: 16),
+                              Text(
+                                'No results found',
+                                style: Theme.of(context).textTheme.headlineSmall,
+                              ),
+                              const SizedBox(height: 8),
+                              Text(
+                                'Try adjusting your search terms',
+                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.mutedForeground),
+                              ),
+                            ],
+                          ),
+                        )
+                      : GridView.builder(
+                          padding: const EdgeInsets.all(16),
+                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                            crossAxisCount: gridCount,
+                            mainAxisSpacing: 16,
+                            crossAxisSpacing: 16,
+                            childAspectRatio: childAspectRatio,
+                          ),
+                          itemCount: _filteredProducts.length,
+                          itemBuilder: (context, index) => ProductCard(
+                            product: _filteredProducts[index],
+                            onTap: () => context.go('/product/${_filteredProducts[index].slug}'),
+                          ),
+                        ),
                 ),
               ],
             ),

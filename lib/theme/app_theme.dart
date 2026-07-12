@@ -76,14 +76,14 @@ class AppTheme {
   ];
 
   static final TextTheme textTheme = TextTheme(
-    displayLarge: GoogleFonts.plusJakartaSans(fontSize: 48, fontWeight: FontWeight.w700, letterSpacing: -0.02),
-    displayMedium: GoogleFonts.plusJakartaSans(fontSize: 36, fontWeight: FontWeight.w700, letterSpacing: -0.02),
-    displaySmall: GoogleFonts.plusJakartaSans(fontSize: 30, fontWeight: FontWeight.w700, letterSpacing: -0.02),
-    headlineMedium: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: -0.02),
-    headlineSmall: GoogleFonts.plusJakartaSans(fontSize: 20, fontWeight: FontWeight.w700, letterSpacing: -0.02),
-    titleLarge: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w600),
-    bodyLarge: GoogleFonts.inter(fontSize: 16, fontWeight: FontWeight.w400, height: 1.6),
-    bodyMedium: GoogleFonts.inter(fontSize: 14, fontWeight: FontWeight.w400, height: 1.6),
+    displayLarge: GoogleFonts.plusJakartaSans(fontSize: 34, fontWeight: FontWeight.w700, letterSpacing: -0.02),
+    displayMedium: GoogleFonts.plusJakartaSans(fontSize: 28, fontWeight: FontWeight.w700, letterSpacing: -0.02),
+    displaySmall: GoogleFonts.plusJakartaSans(fontSize: 24, fontWeight: FontWeight.w700, letterSpacing: -0.02),
+    headlineMedium: GoogleFonts.plusJakartaSans(fontSize: 22, fontWeight: FontWeight.w700, letterSpacing: -0.02),
+    headlineSmall: GoogleFonts.plusJakartaSans(fontSize: 18, fontWeight: FontWeight.w700, letterSpacing: -0.02),
+    titleLarge: GoogleFonts.plusJakartaSans(fontSize: 16, fontWeight: FontWeight.w600),
+    bodyLarge: GoogleFonts.inter(fontSize: 15, fontWeight: FontWeight.w400, height: 1.6),
+    bodyMedium: GoogleFonts.inter(fontSize: 13, fontWeight: FontWeight.w400, height: 1.6),
     bodySmall: GoogleFonts.inter(fontSize: 12, fontWeight: FontWeight.w400, height: 1.6),
     labelSmall: GoogleFonts.inter(fontSize: 10, fontWeight: FontWeight.w500),
   );

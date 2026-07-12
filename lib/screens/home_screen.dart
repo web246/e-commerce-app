@@ -117,9 +117,9 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    final isMobile = width < 76;
-    final gridCount = width < 60? 2 : width < 90 ? 1 : 2;
-    final gridAspect = width < 60 ? 0.72 : width < 90 ? 0.45 : 0.22;
+    final isMobile = width < 768;
+    final gridCount = width < 600 ? 2 : width < 960 ? 3 : 4;
+    final gridAspect = width < 600 ? 0.72 : width < 960 ? 0.74 : 0.80;
 
     return Scaffold(
       body: Column(
@@ -277,7 +277,7 @@ class _HeroBannerState extends State<_HeroBanner> {
     ];
 
     return SizedBox(
-      height: 20,
+      height: 200,
       child: Stack(
         children: [
           PageView.builder(
@@ -359,7 +359,7 @@ class _CategoryStrip extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(name, style: Theme.of(context).textTheme.bodySmall),
+                  Text(name, style: Theme.of(context).textTheme.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
                 ],
               ),
             ),
