@@ -1,0 +1,295 @@
+import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
+import '../providers/cart_provider.dart';
+import '../theme/app_theme.dart';
+
+class CartScreen extends StatefulWidget {
+  const CartScreen({super.key});
+
+  @override
+  State<CartScreen> createState() => _CartScreenState();
+}
+
+class _CartScreenState extends State<CartScreen> {
+  final _couponController = TextEditingController();
+
+  @override
+  void dispose() {
+    _couponController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final cartProvider = context.watch<CartProvider>();
+    final isMobile = MediaQuery.of(context).size.width < 768;
+
+    if (cartProvider.items.isEmpty) {
+      return Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => context.pop(),
+          ),
+          title: const Text('Cart'),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.shopping_cart_outlined, size: 64, color: AppTheme.mutedForeground),
+              const SizedBox(height: 16),
+              Text(
+                'Your Cart is Empty',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 8),
+              Text(
+                'Add items to get started',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.mutedForeground),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () => context.go('/'),
+                child: const Text('Start Shopping'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () => context.pop(),
+        ),
+        title: const Text('Cart'),
+      ),
+      body: SingleChildScrollView(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Cart Items
+              ...cartProvider.items.map((item) {
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      border: Border.all(color: AppTheme.border),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 80,
+                          height: 80,
+                          decoration: BoxDecoration(
+                            color: AppTheme.secondary,
+                            borderRadius: BorderRadius.circular(8),
+                          ),
+                          child: Image.network(
+                            item.product.thumbnail,
+                            fit: BoxFit.cover,
+                            errorBuilder: (_, __, ___) => const Icon(Icons.image),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                item.product.storeName,
+                                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.primary),
+                              ),
+                              Text(
+                                item.product.name,
+                                style: Theme.of(context).textTheme.titleLarge,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'KES ${item.product.price.toStringAsFixed(0)}',
+                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.bold,
+                                  color: AppTheme.primary,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Column(
+                          children: [
+                            Container(
+                              decoration: BoxDecoration(
+                                border: Border.all(color: AppTheme.border),
+                                borderRadius: BorderRadius.circular(6),
+                              ),
+                              child: Row(
+                                children: [
+                                  IconButton(
+                                    icon: const Icon(Icons.remove, size: 16),
+                                    onPressed: item.quantity > 1
+                                        ? () => cartProvider.updateQuantity(item.key, item.quantity - 1)
+                                        : null,
+                                    padding: EdgeInsets.zero,
+                                  ),
+                                  SizedBox(
+                                    width: 24,
+                                    child: Center(child: Text(item.quantity.toString())),
+                                  ),
+                                  IconButton(
+                                    icon: const Icon(Icons.add, size: 16),
+                                    onPressed: () => cartProvider.updateQuantity(item.key, item.quantity + 1),
+                                    padding: EdgeInsets.zero,
+                                  ),
+                                ],
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            IconButton(
+                              icon: const Icon(Icons.delete_outline, color: AppTheme.destructive, size: 20),
+                              onPressed: () => cartProvider.removeItem(item.key),
+                              padding: EdgeInsets.zero,
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                );
+              }).toList(),
+              const SizedBox(height: 24),
+              // Coupon
+              Text('Promo Code', style: Theme.of(context).textTheme.titleLarge),
+              const SizedBox(height: 8),
+              Row(
+                children: [
+                  Expanded(
+                    child: TextField(
+                      controller: _couponController,
+                      decoration: InputDecoration(
+                        hintText: 'Enter coupon code',
+                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  ElevatedButton(
+                    onPressed: () {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(content: Text('Coupon applied')),
+                      );
+                    },
+                    child: const Text('Apply'),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 24),
+              // Order Summary
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppTheme.secondary,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text('Order Summary', style: Theme.of(context).textTheme.titleLarge),
+                    const SizedBox(height: 12),
+                    _SummaryRow(
+                      label: 'Subtotal',
+                      value: 'KES ${cartProvider.subtotal.toStringAsFixed(0)}',
+                    ),
+                    const SizedBox(height: 8),
+                    _SummaryRow(
+                      label: 'Shipping',
+                      value: cartProvider.subtotal >= 2000
+                          ? 'FREE'
+                          : 'KES 150',
+                    ),
+                    const SizedBox(height: 8),
+                    Divider(color: AppTheme.border),
+                    const SizedBox(height: 8),
+                    _SummaryRow(
+                      label: 'Total',
+                      value: 'KES ${(cartProvider.subtotal + (cartProvider.subtotal < 2000 ? 150 : 0)).toStringAsFixed(0)}',
+                      isBold: true,
+                    ),
+                    if (cartProvider.subtotal < 2000)
+                      Padding(
+                        padding: const EdgeInsets.only(top: 8),
+                        child: Text(
+                          'Free shipping on orders over KES 2000',
+                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.green),
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: ElevatedButton(
+                  onPressed: () => context.go('/checkout'),
+                  child: const Text('Proceed to Checkout'),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SizedBox(
+                width: double.infinity,
+                height: 56,
+                child: OutlinedButton(
+                  onPressed: () => context.go('/'),
+                  child: const Text('Continue Shopping'),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _SummaryRow extends StatelessWidget {
+  final String label;
+  final String value;
+  final bool isBold;
+
+  const _SummaryRow({
+    required this.label,
+    required this.value,
+    this.isBold = false,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(
+          label,
+          style: isBold
+              ? Theme.of(context).textTheme.titleLarge
+              : Theme.of(context).textTheme.bodyMedium,
+        ),
+        Text(
+          value,
+          style: isBold
+              ? Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)
+              : Theme.of(context).textTheme.bodyMedium,
+        ),
+      ],
+    );
+  }
+}
