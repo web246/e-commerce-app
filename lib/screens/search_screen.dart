@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../models/product.dart';
+import 'package:provider/provider.dart';
+
 import '../theme/app_theme.dart';
 import '../widgets/common/product_card.dart';
+import '../providers/products_provider.dart';
+import '../providers/categories_provider.dart';
 
 class SearchScreen extends StatefulWidget {
   final String? categorySlug;
@@ -18,52 +21,16 @@ class _SearchScreenState extends State<SearchScreen> {
   String _sortBy = 'relevance';
   bool _freeShippingOnly = false;
 
-  final List<Product> _sampleProducts = [
-    Product(
-      name: 'Premium Wireless Headphones',
-      slug: 'premium-wireless-headphones',
-      description: 'High-quality sound with noise cancellation',
-      storeId: 'store-1',
-      storeName: 'Electronics Pro',
-      category: 'Electronics',
-      subcategory: 'Audio',
-      brand: 'AudioMax',
-      price: 45000,
-      oldPrice: 60000,
-      currency: 'KES',
-      images: [],
-      thumbnail: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500',
-      sku: 'AUDIO-MAX-001',
-      rating: 4.8,
-      reviewsCount: 1250,
-      soldCount: 3500,
-      status: ProductStatus.active,
-      freeShipping: true,
-      isBestSeller: true,
-    ),
-    Product(
-      name: 'iPhone 15 Pro',
-      slug: 'iphone-15-pro',
-      description: 'Latest iPhone with A17 Pro chip',
-      storeId: 'store-1',
-      storeName: 'Apple Store',
-      category: 'Phones',
-      subcategory: 'Smartphones',
-      brand: 'Apple',
-      price: 120000,
-      oldPrice: 150000,
-      currency: 'KES',
-      images: [],
-      thumbnail: 'https://images.unsplash.com/photo-1556656793-08538906a9f8?w=500',
-      sku: 'IPHONE-15-PRO',
-      rating: 4.8,
-      reviewsCount: 1250,
-      soldCount: 3500,
-      status: ProductStatus.active,
-      freeShipping: true,
-      isBestSeller: true,
-    ),
-  ];
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<CategoriesProvider>().fetchAll();
+      if (widget.categorySlug != null && widget.categorySlug!.isNotEmpty) {
+        context.read<ProductsProvider>().fetchByCategory(widget.categorySlug!);
+      }
+    });
+  }
 
   @override
   void dispose() {
@@ -77,6 +44,10 @@ class _SearchScreenState extends State<SearchScreen> {
     final isMobile = width < 768;
     final gridCount = width < 600 ? 2 : width < 960 ? 3 : 4;
     final childAspectRatio = width < 600 ? 0.72 : width < 960 ? 0.74 : 0.80;
+    final productsProvider = context.watch<ProductsProvider>();
+    final products = widget.categorySlug != null && widget.categorySlug!.isNotEmpty
+        ? productsProvider.categoryProducts
+        : productsProvider.searchResults;
 
     return Scaffold(
       appBar: AppBar(
@@ -117,6 +88,7 @@ class _SearchScreenState extends State<SearchScreen> {
                             prefixIcon: const Icon(Icons.search),
                             border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
                           ),
+                          onSubmitted: (value) => productsProvider.search(value),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -140,7 +112,13 @@ class _SearchScreenState extends State<SearchScreen> {
                             DropdownMenuItem(value: 'rating', child: Text('Top Rated')),
                             DropdownMenuItem(value: 'newest', child: Text('Newest')),
                           ],
-                          onChanged: (value) => setState(() => _sortBy = value!),
+                          onChanged: (value) {
+                            setState(() => _sortBy = value!);
+                            final query = _searchController.text;
+                            if (query.isNotEmpty) {
+                              productsProvider.search(query);
+                            }
+                          },
                         ),
                     ],
                   ),
@@ -155,10 +133,10 @@ class _SearchScreenState extends State<SearchScreen> {
                       crossAxisSpacing: 16,
                       childAspectRatio: childAspectRatio,
                     ),
-                    itemCount: _sampleProducts.length,
+                    itemCount: products.length,
                     itemBuilder: (context, index) => ProductCard(
-                      product: _sampleProducts[index],
-                      onTap: () => context.go('/product/${_sampleProducts[index].slug}'),
+                      product: products[index],
+                      onTap: () => context.go('/product/${products[index].slug}'),
                     ),
                   ),
                 ),
@@ -171,6 +149,10 @@ class _SearchScreenState extends State<SearchScreen> {
   }
 
   Widget _buildFilters() {
+    final categoriesProvider = context.watch<CategoriesProvider>();
+    final categories = categoriesProvider.categories.isNotEmpty
+        ? categoriesProvider.categories.map((c) => c.name).toList()
+        : ['Electronics', 'Fashion', 'Phones', 'Computers'];
     return SingleChildScrollView(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -195,7 +177,7 @@ class _SearchScreenState extends State<SearchScreen> {
           const SizedBox(height: 16),
           Text('Category', style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
-          ...['Electronics', 'Fashion', 'Phones', 'Computers'].map((category) {
+          ...categories.map((category) {
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: TextButton(

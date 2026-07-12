@@ -8,6 +8,9 @@ import 'providers/auth_provider.dart';
 import 'providers/cart_provider.dart';
 import 'providers/wishlist_provider.dart';
 import 'providers/theme_provider.dart';
+import 'providers/products_provider.dart';
+import 'providers/categories_provider.dart';
+import 'providers/orders_provider.dart';
 import 'screens/splash_screen.dart';
 import 'screens/onboarding_screen.dart';
 import 'screens/auth/login_screen.dart';
@@ -75,6 +78,9 @@ class DennisMendezApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => AuthProvider(sharedPreferences)),
         ChangeNotifierProvider(create: (_) => CartProvider(sharedPreferences)),
         ChangeNotifierProvider(create: (_) => WishlistProvider(sharedPreferences)),
+        ChangeNotifierProvider(create: (_) => ProductsProvider(sharedPreferences)),
+        ChangeNotifierProvider(create: (_) => CategoriesProvider(sharedPreferences)),
+        ChangeNotifierProvider(create: (_) => OrdersProvider(sharedPreferences)),
       ],
       child: Consumer<ThemeProvider>(
         builder: (context, themeProvider, child) {
@@ -115,7 +121,10 @@ class DennisMendezApp extends StatelessWidget {
         }),
         GoRoute(path: '/cart', builder: (context, state) => const CartScreen()),
         GoRoute(path: '/checkout', builder: (context, state) => const CheckoutScreen()),
-        GoRoute(path: '/order-success', builder: (context, state) => const OrderSuccessScreen()),
+        GoRoute(path: '/order-success', builder: (context, state) {
+          final orderNumber = state.uri.queryParameters['orderNumber'] ?? '';
+          return OrderSuccessScreen(orderNumber: orderNumber);
+        }),
         GoRoute(path: '/orders', builder: (context, state) => const OrdersScreen()),
         GoRoute(path: '/wishlist', builder: (context, state) => const WishlistScreen()),
         GoRoute(path: '/search', builder: (context, state) => const SearchScreen()),

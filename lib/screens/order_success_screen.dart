@@ -3,7 +3,8 @@ import 'package:go_router/go_router.dart';
 import '../theme/app_theme.dart';
 
 class OrderSuccessScreen extends StatefulWidget {
-  const OrderSuccessScreen({super.key});
+  final String orderNumber;
+  const OrderSuccessScreen({this.orderNumber = '', super.key});
 
   @override
   State<OrderSuccessScreen> createState() => _OrderSuccessScreenState();
@@ -32,7 +33,9 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> with TickerProv
 
   @override
   Widget build(BuildContext context) {
-    final orderNumber = 'ORD-${DateTime.now().millisecondsSinceEpoch.toString().substring(0, 8).toUpperCase()}';
+    final orderNumber = widget.orderNumber.isNotEmpty
+        ? widget.orderNumber
+        : 'ORD-${DateTime.now().millisecondsSinceEpoch.toString().substring(0, 8).toUpperCase()}';
 
     return WillPopScope(
       onWillPop: () async {

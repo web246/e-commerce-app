@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../../models/product.dart';
 import '../../models/wishlist_item.dart';
 import '../../providers/wishlist_provider.dart';
+import '../../providers/auth_provider.dart';
 import '../../theme/app_theme.dart';
 
 class ProductCard extends StatefulWidget {
@@ -132,14 +133,14 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
                     child: GestureDetector(
                       onTap: () {
                          final wishlistItem = WishlistItem(
-                           productId: widget.product.name,
+                           productId: widget.product.id,
                            productName: widget.product.name,
                            productImage: widget.product.thumbnail,
                            productPrice: widget.product.price,
                            storeId: widget.product.storeId,
                            storeName: widget.product.storeName,
                         );
-                        context.read<WishlistProvider>().toggle(wishlistItem);
+                        context.read<WishlistProvider>().toggle(context.read<AuthProvider>().user?.id ?? '', wishlistItem);
                       },
                       child: Container(
                         width: 40,

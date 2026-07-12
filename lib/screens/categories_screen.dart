@@ -1,27 +1,30 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:provider/provider.dart';
 import '../models/category.dart';
 import '../theme/app_theme.dart';
+import '../providers/categories_provider.dart';
 
-class CategoriesScreen extends StatelessWidget {
+class CategoriesScreen extends StatefulWidget {
   const CategoriesScreen({super.key});
 
   @override
+  State<CategoriesScreen> createState() => _CategoriesScreenState();
+}
+
+class _CategoriesScreenState extends State<CategoriesScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<CategoriesProvider>().fetchAll();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final categories = [
-      Category(name: 'Electronics', slug: 'electronics', icon: '📱', color: '#0066FF'),
-      Category(name: 'Fashion', slug: 'fashion', icon: '👔', color: '#FF6B9D'),
-      Category(name: 'Phones', slug: 'phones', icon: '📞', color: '#00B4D8'),
-      Category(name: 'Computers', slug: 'computers', icon: '💻', color: '#6366F1'),
-      Category(name: 'Furniture', slug: 'furniture', icon: '🛋️', color: '#8B5CF6'),
-      Category(name: 'Gaming', slug: 'gaming', icon: '🎮', color: '#EC4899'),
-      Category(name: 'Beauty', slug: 'beauty', icon: '💄', color: '#F59E0B'),
-      Category(name: 'Shoes', slug: 'shoes', icon: '👟', color: '#10B981'),
-      Category(name: 'Groceries', slug: 'groceries', icon: '🛒', color: '#22C55E'),
-      Category(name: 'Kitchen', slug: 'kitchen', icon: '🍳', color: '#F97316'),
-      Category(name: 'Automotive', slug: 'automotive', icon: '🚗', color: '#64748B'),
-      Category(name: 'Health', slug: 'health', icon: '⚕️', color: '#EF4444'),
-    ];
+    final categoriesProvider = context.watch<CategoriesProvider>();
+    final categories = categoriesProvider.categories;
 
     final width = MediaQuery.of(context).size.width;
     final crossAxisCount = width < 600 ? 2 : width < 960 ? 3 : 4;

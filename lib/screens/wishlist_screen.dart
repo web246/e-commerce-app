@@ -2,13 +2,29 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import '../providers/wishlist_provider.dart';
+import '../providers/auth_provider.dart';
 import '../theme/app_theme.dart';
 
-class WishlistScreen extends StatelessWidget {
+class WishlistScreen extends StatefulWidget {
   const WishlistScreen({super.key});
 
   @override
+  State<WishlistScreen> createState() => _WishlistScreenState();
+}
+
+class _WishlistScreenState extends State<WishlistScreen> {
+  bool _loaded = false;
+
+  @override
   Widget build(BuildContext context) {
+    final authProvider = context.watch<AuthProvider>();
+    final user = authProvider.user;
+    if (!_loaded && user != null && user.id.isNotEmpty) {
+      _loaded = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        context.read<WishlistProvider>().loadFromSupabase(user.id);
+      });
+    }
     final wishlistProvider = context.watch<WishlistProvider>();
     final width = MediaQuery.of(context).size.width;
     final crossAxisCount = width < 760 ? 1 : 2;
@@ -102,7 +118,7 @@ class WishlistScreen extends StatelessWidget {
                             SizedBox(
                               width: double.infinity,
                               child: OutlinedButton.icon(
-                                onPressed: () => context.read<WishlistProvider>().toggle(item),
+                                onPressed: () => context.read<WishlistProvider>().toggle(user?.id ?? '', item),
                                 icon: const Icon(Icons.delete, size: 18),
                                 label: const Text('Remove'),
                               ),
