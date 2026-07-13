@@ -81,12 +81,12 @@ class _TopBarState extends State<TopBar> {
               const Spacer(),
             ],
             // Icons
-            GestureDetector(
-              onTap: isMobile ? widget.onSearchTap : null,
-              child: Icon(
+            IconButton(
+              icon: Icon(
                 Icons.search,
                 color: Theme.of(context).textTheme.bodyMedium?.color,
               ),
+              onPressed: isMobile ? widget.onSearchTap : null,
             ),
             const SizedBox(width: 16),
             // Wishlist
@@ -136,9 +136,9 @@ class _IconWithBadge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Stack(
+    return IconButton(
+      onPressed: onTap,
+      icon: Stack(
         alignment: Alignment.topRight,
         children: [
           Icon(icon, color: Theme.of(context).textTheme.bodyMedium?.color),

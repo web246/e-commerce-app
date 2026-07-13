@@ -142,8 +142,8 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
                         context.read<WishlistProvider>().toggle(wishlistItem);
                       },
                       child: Container(
-                        width: 40,
-                        height: 40,
+                        width: 48,
+                        height: 48,
                         decoration: BoxDecoration(
                           color: Colors.white,
                           shape: BoxShape.circle,
@@ -162,7 +162,7 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
               Flexible(
                 fit: FlexFit.loose,
                 child: Padding(
-                  padding: const EdgeInsets.all(10),
+                  padding: const EdgeInsets.all(12),
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(minHeight: 0),
                     child: Column(
@@ -182,7 +182,7 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
                           maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 8),
                         Wrap(
                           crossAxisAlignment: WrapCrossAlignment.center,
                           spacing: 6,
@@ -199,7 +199,7 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
+                        const SizedBox(height: 8),
                         Wrap(
                           crossAxisAlignment: WrapCrossAlignment.center,
                           spacing: 6,
@@ -226,7 +226,7 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
                           ],
                         ),
                         if (widget.product.freeShipping) ...[
-                          const SizedBox(height: 6),
+                          const SizedBox(height: 8),
                           Container(
                             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                             decoration: BoxDecoration(
