@@ -1,8 +1,11 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart' as sb;
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart' as sb;
+
+import '../config/constants.dart';
 import '../models/user.dart';
 
 class _DemoUser {
@@ -20,7 +23,6 @@ class _DemoUser {
 }
 
 class AuthProvider extends ChangeNotifier {
-  static const _userProfileKey = 'user_profile';
   final SharedPreferences sharedPreferences;
 
   User? _user;
@@ -28,6 +30,7 @@ class AuthProvider extends ChangeNotifier {
   bool _isLoadingAuth = false;
   bool _authChecked = false;
   String? _pendingEmail;
+  StreamSubscription? _authSubscription;
 
   static const Map<String, _DemoUser> _demoUsers = {
     'admin@example.com': _DemoUser(
@@ -96,7 +99,7 @@ class AuthProvider extends ChangeNotifier {
       isVerified: true,
       avatarUrl: '',
     );
-    await sharedPreferences.setString(_userProfileKey, jsonEncode(_user!.toJson()));
+    await sharedPreferences.setString(AppConstants.prefsUserProfile, jsonEncode(_user!.toJson()));
     _isAuthenticated = true;
     _pendingEmail = demoUser.email;
     notifyListeners();
@@ -117,25 +120,51 @@ class AuthProvider extends ChangeNotifier {
           isVerified: authUser.emailConfirmedAt != null,
           avatarUrl: authUser.userMetadata?['avatarUrl']?.toString() ?? '',
         );
-        sharedPreferences.setString(_userProfileKey, jsonEncode(_user!.toJson()));
+        sharedPreferences.setString(AppConstants.prefsUserProfile, jsonEncode(_user!.toJson()));
         _isAuthenticated = true;
       } else {
-        final userJson = sharedPreferences.getString(_userProfileKey);
+        final userJson = sharedPreferences.getString(AppConstants.prefsUserProfile);
         if (userJson != null) {
           _user = User.fromJson(jsonDecode(userJson));
-          _isAuthenticated = false;
+          _isAuthenticated = true;
         }
       }
     } else {
-      final userJson = sharedPreferences.getString(_userProfileKey);
+      final userJson = sharedPreferences.getString(AppConstants.prefsUserProfile);
       if (userJson != null) {
         _user = User.fromJson(jsonDecode(userJson));
+        _isAuthenticated = true;
       }
-      _isAuthenticated = false;
     }
 
     _authChecked = true;
     notifyListeners();
+
+    if (_hasSupabaseClient) {
+      _authSubscription = _client.auth.onAuthStateChange.listen((data) {
+        final event = data.event;
+        final session = data.session;
+        if (session != null && event == sb.AuthChangeEvent.signedIn) {
+          _user = User(
+            id: session.user.id,
+            name: session.user.userMetadata?['name']?.toString() ?? session.user.email ?? 'User',
+            email: session.user.email ?? '',
+            phone: session.user.userMetadata?['phone']?.toString() ?? '',
+            role: session.user.userMetadata?['role']?.toString() ?? 'customer',
+            isVerified: session.user.emailConfirmedAt != null,
+            avatarUrl: session.user.userMetadata?['avatarUrl']?.toString() ?? '',
+          );
+          _isAuthenticated = true;
+          sharedPreferences.setString(AppConstants.prefsUserProfile, jsonEncode(_user!.toJson()));
+          notifyListeners();
+        } else if (event == sb.AuthChangeEvent.signedOut) {
+          _user = null;
+          _isAuthenticated = false;
+          sharedPreferences.remove(AppConstants.prefsUserProfile);
+          notifyListeners();
+        }
+      });
+    }
   }
 
   Future<void> register(String email, String password) async {
@@ -164,7 +193,7 @@ class AuthProvider extends ChangeNotifier {
           isVerified: authUser.emailConfirmedAt != null,
           avatarUrl: authUser.userMetadata?['avatarUrl']?.toString() ?? '',
         );
-        sharedPreferences.setString(_userProfileKey, jsonEncode(_user!.toJson()));
+        sharedPreferences.setString(AppConstants.prefsUserProfile, jsonEncode(_user!.toJson()));
       }
     } catch (error) {
       rethrow;
@@ -200,7 +229,7 @@ class AuthProvider extends ChangeNotifier {
           isVerified: authUser.emailConfirmedAt != null,
           avatarUrl: authUser.userMetadata?['avatarUrl']?.toString() ?? '',
         );
-        sharedPreferences.setString(_userProfileKey, jsonEncode(_user!.toJson()));
+        sharedPreferences.setString(AppConstants.prefsUserProfile, jsonEncode(_user!.toJson()));
         _isAuthenticated = true;
       } else {
         throw Exception('Verification did not complete authentication');
@@ -264,7 +293,7 @@ class AuthProvider extends ChangeNotifier {
           isVerified: authUser.emailConfirmedAt != null,
           avatarUrl: authUser.userMetadata?['avatarUrl']?.toString() ?? '',
         );
-        sharedPreferences.setString(_userProfileKey, jsonEncode(_user!.toJson()));
+        sharedPreferences.setString(AppConstants.prefsUserProfile, jsonEncode(_user!.toJson()));
         _isAuthenticated = true;
       } else {
         throw Exception('Login did not return a valid session');
@@ -283,10 +312,16 @@ class AuthProvider extends ChangeNotifier {
         await _client.auth.signOut();
       } catch (_) {}
     }
-    await sharedPreferences.remove(_userProfileKey);
+    await sharedPreferences.remove(AppConstants.prefsUserProfile);
     _user = null;
     _isAuthenticated = false;
     _pendingEmail = null;
     notifyListeners();
+  }
+
+  @override
+  void dispose() {
+    _authSubscription?.cancel();
+    super.dispose();
   }
 }

@@ -4,7 +4,9 @@ import 'package:flutter_animate/flutter_animate.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import '../providers/auth_provider.dart';
+
+import '../config/constants.dart';
+import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 
 class SplashScreen extends StatefulWidget {
@@ -29,10 +31,17 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
   }
 
   void _navigateNext() async {
-    await Future.delayed(const Duration(seconds: 3));
     final authProvider = context.read<AuthProvider>();
+
+    await Future.delayed(const Duration(seconds: 3));
+
+    while (!authProvider.authChecked) {
+      await Future.delayed(const Duration(milliseconds: 100));
+      if (!mounted) return;
+    }
+
     final prefs = await SharedPreferences.getInstance();
-    final onboardingSeen = prefs.getBool('onboarding_seen') ?? false;
+    final onboardingSeen = prefs.getBool(AppConstants.prefsOnboardingSeen) ?? false;
 
     if (!mounted) return;
     if (authProvider.isAuthenticated) {
@@ -95,7 +104,7 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                   }).scale(duration: 2000.ms, begin: Offset(1, 1), end: Offset(1.1, 1.1)),
                   const SizedBox(height: 24),
                   const Text(
-                    'Dennis Mendez',
+                    'Vendi',
                     style: TextStyle(fontSize: 36, fontWeight: FontWeight.bold, color: Colors.white),
                   ),
                   const SizedBox(height: 8),

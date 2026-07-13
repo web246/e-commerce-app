@@ -2,12 +2,14 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../config/constants.dart';
 import '../models/cart_item.dart';
 
 class CartProvider extends ChangeNotifier {
-  static const _cartKey = 'dennis_mendez_cart';
   final SharedPreferences sharedPreferences;
   List<CartItem> _items = [];
+  String? _userId;
   String? coupon;
 
   CartProvider(this.sharedPreferences) {
@@ -18,13 +20,27 @@ class CartProvider extends ChangeNotifier {
   int get itemCount => _items.fold(0, (sum, item) => sum + item.quantity);
   double get subtotal => _items.fold(0, (sum, item) => sum + item.product.price * item.quantity);
 
+  String get _cartKey => '${AppConstants.prefsCartPrefix}${_userId ?? 'anonymous'}';
+
+  Future<void> setUserId(String? userId) async {
+    if (_userId == userId) return;
+    await _saveCart();
+    _userId = userId;
+    _loadCart();
+  }
+
   Future<void> _loadCart() async {
-    final data = sharedPreferences.getString(_cartKey);
-    if (data != null && data.isNotEmpty) {
-      final decoded = jsonDecode(data) as Map<String, dynamic>;
-      coupon = decoded['coupon'] as String?;
-      final itemsJson = decoded['items'] as List<dynamic>? ?? [];
-      _items = itemsJson.map((item) => CartItem.fromJson(Map<String, dynamic>.from(item))).toList();
+    try {
+      final data = sharedPreferences.getString(_cartKey);
+      if (data != null && data.isNotEmpty) {
+        final decoded = jsonDecode(data) as Map<String, dynamic>;
+        coupon = decoded['coupon'] as String?;
+        final itemsJson = decoded['items'] as List<dynamic>? ?? [];
+        _items = itemsJson.map((item) => CartItem.fromJson(Map<String, dynamic>.from(item))).toList();
+      }
+    } catch (_) {
+      _items = [];
+      coupon = null;
     }
     notifyListeners();
   }

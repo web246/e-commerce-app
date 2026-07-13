@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../theme/app_theme.dart';
 
 class ResetPasswordScreen extends StatefulWidget {
@@ -15,6 +16,8 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
   bool _submitted = false;
+  bool _isLoading = false;
+  String? _error;
 
   @override
   void initState() {
@@ -36,17 +39,28 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
     super.dispose();
   }
 
-  void _handleReset() {
-    if (_passwordController.text.isEmpty || _confirmPasswordController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please fill in all fields')));
-      return;
-    }
+  Future<void> _handleReset() async {
+    if (_passwordController.text.isEmpty || _confirmPasswordController.text.isEmpty) return;
     if (_passwordController.text != _confirmPasswordController.text) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Passwords do not match')));
+      setState(() { _error = 'Passwords do not match'; });
       return;
     }
-    setState(() => _submitted = true);
-    Future.delayed(const Duration(seconds: 2), () => context.go('/login'));
+    if (_passwordController.text.length < 8) {
+      setState(() { _error = 'Password must be at least 8 characters'; });
+      return;
+    }
+    setState(() { _isLoading = true; _error = null; });
+    try {
+      await Supabase.instance.client.auth.updateUser(
+        UserAttributes(password: _passwordController.text),
+      );
+      setState(() { _isLoading = false; _submitted = true; });
+      Future.delayed(const Duration(seconds: 2), () {
+        if (mounted) context.go('/login');
+      });
+    } catch (e) {
+      setState(() { _isLoading = false; _error = e.toString(); });
+    }
   }
 
   @override
@@ -132,6 +146,29 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 24),
+        if (_error != null) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.destructive.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.error_outline, color: AppTheme.destructive, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _error!,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.destructive),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
         TextField(
           controller: _passwordController,
           obscureText: true,
@@ -156,8 +193,14 @@ class _ResetPasswordScreenState extends State<ResetPasswordScreen> {
           width: double.infinity,
           height: 56,
           child: ElevatedButton(
-            onPressed: _handleReset,
-            child: const Text('Reset Password'),
+            onPressed: _isLoading ? null : _handleReset,
+            child: _isLoading
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white)),
+                  )
+                : const Text('Reset Password'),
           ),
         ),
       ],

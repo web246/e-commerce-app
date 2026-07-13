@@ -1,5 +1,5 @@
-name: dennis_mendez_app
-description: A Flutter marketplace app inspired by Dennis Mendez.
+name: vendi
+description: Vendi — a modern multi-vendor marketplace app.
 publish_to: 'none'
 version: 0.1.0+1
 
@@ -19,13 +19,17 @@ dependencies:
   flutter_animate: ^4.5.0
   carousel_slider: ^5.0.0
   http: ^1.2.0
-  flutter_svg: ^2.0.0
-  lucide_icons: ^0.257.0
   supabase_flutter: ^1.6.0
 
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
+# Transitive dep pulled in by supabase_flutter 1.x. The locked 5.0.0 fails to
+# compile on Android (references the removed v1-embedding `Registrar` API).
+# Not used in app code; override to a version that supports v2 embedding.
+dependency_overrides:
+  sign_in_with_apple: ^6.1.4
 
 flutter:
   uses-material-design: true

@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import '../../providers/auth_provider.dart';
+
+import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
 
 class RegisterScreen extends StatefulWidget {
@@ -15,49 +16,110 @@ class _RegisterScreenState extends State<RegisterScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
   final _confirmPasswordController = TextEditingController();
+  final _emailFocusNode = FocusNode();
+  final _passwordFocusNode = FocusNode();
+  final _confirmPasswordFocusNode = FocusNode();
   bool _showOTP = false;
+  bool _isLoading = false;
   final _otpControllers = List.generate(6, (_) => TextEditingController());
   String? _errorMessage;
+  String? _emailError;
+  String? _passwordError;
+  String? _confirmPasswordError;
+
+  final _emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
+
+  @override
+  void initState() {
+    super.initState();
+    _emailFocusNode.addListener(() {
+      if (!_emailFocusNode.hasFocus) _validateEmail();
+    });
+    _passwordFocusNode.addListener(() {
+      if (!_passwordFocusNode.hasFocus) _validatePassword();
+    });
+    _confirmPasswordFocusNode.addListener(() {
+      if (!_confirmPasswordFocusNode.hasFocus) _validateConfirmPassword();
+    });
+  }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
     _confirmPasswordController.dispose();
+    _emailFocusNode.dispose();
+    _passwordFocusNode.dispose();
+    _confirmPasswordFocusNode.dispose();
     for (var controller in _otpControllers) {
       controller.dispose();
     }
     super.dispose();
   }
 
-  Future<void> _handleRegister() async {
-    setState(() {
-      _errorMessage = null;
-    });
+  void _validateEmail() {
+    final email = _emailController.text.trim();
+    if (email.isNotEmpty && !_emailRegex.hasMatch(email)) {
+      setState(() { _emailError = 'Please enter a valid email address'; });
+    } else {
+      setState(() { _emailError = null; });
+    }
+  }
 
-    if (_emailController.text.isEmpty || _passwordController.text.isEmpty || _confirmPasswordController.text.isEmpty) {
+  void _validatePassword() {
+    final password = _passwordController.text;
+    if (password.isNotEmpty && password.length < 8) {
+      setState(() { _passwordError = 'Password must be at least 8 characters'; });
+    } else {
+      setState(() { _passwordError = null; });
+    }
+  }
+
+  void _validateConfirmPassword() {
+    final confirm = _confirmPasswordController.text;
+    if (confirm.isNotEmpty && confirm != _passwordController.text) {
+      setState(() { _confirmPasswordError = 'Passwords do not match'; });
+    } else {
+      setState(() { _confirmPasswordError = null; });
+    }
+  }
+
+  bool _validateAll() {
+    _validateEmail();
+    _validatePassword();
+    _validateConfirmPassword();
+    if (_emailError != null || _passwordError != null || _confirmPasswordError != null) {
+      return false;
+    }
+    if (_emailController.text.trim().isEmpty ||
+        _passwordController.text.isEmpty ||
+        _confirmPasswordController.text.isEmpty) {
       setState(() => _errorMessage = 'Please fill in all fields');
-      return;
+      return false;
     }
+    return true;
+  }
 
-    if (_passwordController.text != _confirmPasswordController.text) {
-      setState(() => _errorMessage = 'Passwords do not match');
-      return;
-    }
+  Future<void> _handleRegister() async {
+    setState(() { _errorMessage = null; });
+    if (!_validateAll()) return;
 
+    setState(() { _isLoading = true; });
     final authProvider = context.read<AuthProvider>();
     try {
       await authProvider.register(_emailController.text.trim(), _passwordController.text);
-      setState(() => _showOTP = true);
+      if (!mounted) return;
+      setState(() { _showOTP = true; _isLoading = false; });
     } catch (error) {
-      setState(() => _errorMessage = error.toString().replaceAll('Exception: ', ''));
+      setState(() {
+        _isLoading = false;
+        _errorMessage = error.toString().replaceAll('Exception: ', '');
+      });
     }
   }
 
   Future<void> _verifyOTP() async {
-    setState(() {
-      _errorMessage = null;
-    });
+    setState(() { _errorMessage = null; });
     final code = _otpControllers.map((controller) => controller.text.trim()).join();
     final email = context.read<AuthProvider>().pendingEmail ?? _emailController.text.trim();
 
@@ -66,12 +128,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
       return;
     }
 
+    setState(() { _isLoading = true; });
     try {
       await context.read<AuthProvider>().verifyOtp(email, code);
       if (!mounted) return;
+      setState(() { _isLoading = false; });
       context.go('/');
     } catch (error) {
-      setState(() => _errorMessage = error.toString().replaceAll('Exception: ', ''));
+      setState(() {
+        _isLoading = false;
+        _errorMessage = error.toString().replaceAll('Exception: ', '');
+      });
     }
   }
 
@@ -148,47 +215,63 @@ class _RegisterScreenState extends State<RegisterScreen> {
         ),
         const SizedBox(height: 8),
         Text(
-          'Join Dennis Mendez today',
+          'Join Vendi today',
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.mutedForeground),
         ),
         const SizedBox(height: 24),
         TextField(
           controller: _emailController,
+          focusNode: _emailFocusNode,
           decoration: InputDecoration(
             hintText: 'Email address',
             prefixIcon: const Icon(Icons.email_outlined),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            errorText: _emailError,
           ),
+          onChanged: (_) {
+            if (_emailError != null) setState(() { _emailError = null; });
+          },
         ),
         const SizedBox(height: 16),
         TextField(
           controller: _passwordController,
+          focusNode: _passwordFocusNode,
           obscureText: true,
           decoration: InputDecoration(
             hintText: 'Password',
             prefixIcon: const Icon(Icons.lock_outlined),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            errorText: _passwordError,
           ),
+          onChanged: (_) {
+            if (_passwordError != null) setState(() { _passwordError = null; });
+          },
         ),
         const SizedBox(height: 16),
         TextField(
           controller: _confirmPasswordController,
+          focusNode: _confirmPasswordFocusNode,
           obscureText: true,
           decoration: InputDecoration(
             hintText: 'Confirm password',
             prefixIcon: const Icon(Icons.lock_outlined),
             border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+            errorText: _confirmPasswordError,
           ),
+          onChanged: (_) {
+            if (_confirmPasswordError != null) setState(() { _confirmPasswordError = null; });
+          },
         ),
         const SizedBox(height: 24),
         Consumer<AuthProvider>(
           builder: (context, authProvider, child) {
+            final loading = _isLoading || authProvider.isLoadingAuth;
             return SizedBox(
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: authProvider.isLoadingAuth ? null : _handleRegister,
-                child: authProvider.isLoadingAuth
+                onPressed: loading ? null : _handleRegister,
+                child: loading
                     ? const SizedBox(
                         width: 24,
                         height: 24,
@@ -289,12 +372,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
         const SizedBox(height: 24),
         Consumer<AuthProvider>(
           builder: (context, authProvider, child) {
+            final loading = _isLoading || authProvider.isLoadingAuth;
             return SizedBox(
               width: double.infinity,
               height: 56,
               child: ElevatedButton(
-                onPressed: authProvider.isLoadingAuth ? null : _verifyOTP,
-                child: authProvider.isLoadingAuth
+                onPressed: loading ? null : _verifyOTP,
+                child: loading
                     ? const SizedBox(
                         width: 24,
                         height: 24,

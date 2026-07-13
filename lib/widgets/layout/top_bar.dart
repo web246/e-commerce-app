@@ -1,16 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../providers/cart_provider.dart';
-import '../../theme/app_theme.dart';
+
+import '../../providers/providers.dart';
 
 class TopBar extends StatefulWidget {
   final VoidCallback? onSearchTap;
+  final VoidCallback? onMenuTap;
   final VoidCallback? onWishlistTap;
   final VoidCallback? onCartTap;
   final VoidCallback? onNotificationTap;
 
   const TopBar({
     this.onSearchTap,
+    this.onMenuTap,
     this.onWishlistTap,
     this.onCartTap,
     this.onNotificationTap,
@@ -24,100 +26,224 @@ class TopBar extends StatefulWidget {
 class _TopBarState extends State<TopBar> {
   @override
   Widget build(BuildContext context) {
-    final isMobile = MediaQuery.of(context).size.width < 768;
     final cartProvider = context.watch<CartProvider>();
-    final backgroundColor = Theme.of(context).scaffoldBackgroundColor;
-    final borderColor = Theme.of(context).dividerColor;
+    final theme = Theme.of(context);
 
     return Container(
       decoration: BoxDecoration(
-        color: backgroundColor,
+        color: theme.scaffoldBackgroundColor,
         border: Border(
-          bottom: BorderSide(color: borderColor.withOpacity(0.1)),
+          bottom: BorderSide(color: theme.dividerColor.withValues(alpha: 0.5)),
         ),
-        boxShadow: AppTheme.hydroShadow,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 1),
+          ),
+        ],
       ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-        child: Row(
-          children: [
-            // Logo
-            Text(
-              'D',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-                color: AppTheme.primary,
-              ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final width = constraints.maxWidth;
+
+          if (width < 400) {
+            return _buildCompactLayout(theme, cartProvider);
+          } else if (width < 768) {
+            return _buildMediumLayout(theme, cartProvider);
+          } else {
+            return _buildFullLayout(theme, cartProvider);
+          }
+        },
+      ),
+    );
+  }
+
+  Widget _buildCompactLayout(ThemeData theme, CartProvider cartProvider) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
+      child: Row(
+        children: [
+          // Hamburger menu
+          IconButton(
+            icon: const Icon(Icons.menu, size: 22),
+            onPressed: widget.onMenuTap,
+            color: theme.colorScheme.onSurface,
+            splashRadius: 20,
+          ),
+          const SizedBox(width: 4),
+          // Logo text
+          Text(
+            'Duka',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.primary,
             ),
-            const SizedBox(width: 16),
-            // Search bar (desktop only)
-            if (!isMobile) ...[
-              Expanded(
-                child: GestureDetector(
-                  onTap: widget.onSearchTap,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    decoration: BoxDecoration(
-                      color: AppTheme.secondary,
-                      borderRadius: BorderRadius.circular(24),
+          ),
+          const Spacer(),
+          // Search icon
+          IconButton(
+            icon: const Icon(Icons.search, size: 22),
+            onPressed: widget.onSearchTap,
+            color: theme.colorScheme.onSurface,
+            splashRadius: 20,
+          ),
+          // Cart with badge
+          _IconWithBadge(
+            icon: Icons.shopping_cart_outlined,
+            onTap: widget.onCartTap,
+            badge: cartProvider.itemCount > 0 ? cartProvider.itemCount : null,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMediumLayout(ThemeData theme, CartProvider cartProvider) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        children: [
+          // Logo
+          Text(
+            'Duka',
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.primary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          // Search field (compact)
+          Expanded(
+            child: GestureDetector(
+              onTap: widget.onSearchTap,
+              child: Container(
+                height: 38,
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: theme.dividerColor),
+                ),
+                child: Row(
+                  children: [
+                    const Icon(Icons.search, size: 16),
+                    const SizedBox(width: 6),
+                    Text(
+                      'Search products...',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                      ),
                     ),
-                    child: Row(
-                      children: [
-                        const Icon(Icons.search, size: 20),
-                        const SizedBox(width: 8),
-                        Text(
-                          'Search products...',
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppTheme.mutedForeground,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 16),
-            ] else ...[
-              const Spacer(),
-            ],
-            // Icons
-            IconButton(
-              icon: Icon(
-                Icons.search,
-                color: Theme.of(context).textTheme.bodyMedium?.color,
+            ),
+          ),
+          const SizedBox(width: 8),
+          // Wishlist
+          _IconWithBadge(
+            icon: Icons.favorite_border,
+            onTap: widget.onWishlistTap,
+            badge: null,
+          ),
+          // Cart with badge
+          _IconWithBadge(
+            icon: Icons.shopping_cart_outlined,
+            onTap: widget.onCartTap,
+            badge: cartProvider.itemCount > 0 ? cartProvider.itemCount : null,
+          ),
+          // Avatar
+          _AvatarButton(onTap: () {}),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildFullLayout(ThemeData theme, CartProvider cartProvider) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 10),
+      child: Row(
+        children: [
+          // Logo
+          Text(
+            'Duka',
+            style: theme.textTheme.headlineSmall?.copyWith(
+              fontWeight: FontWeight.bold,
+              color: theme.colorScheme.primary,
+            ),
+          ),
+          const SizedBox(width: 24),
+          // Full search field
+          Expanded(
+            child: GestureDetector(
+              onTap: widget.onSearchTap,
+              child: Container(
+                height: 42,
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surface,
+                  borderRadius: BorderRadius.circular(24),
+                  border: Border.all(color: theme.dividerColor),
+                ),
+                child: Row(
+                  children: [
+                    Icon(Icons.search, size: 18, color: theme.colorScheme.onSurface.withValues(alpha: 0.5)),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Search products...',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurface.withValues(alpha: 0.4),
+                      ),
+                    ),
+                    const Spacer(),
+                    // Quick category chips inside search bar
+                    ...['Electronics', 'Fashion', 'Home'].map(
+                      (cat) => Padding(
+                        padding: const EdgeInsets.only(left: 6),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                          decoration: BoxDecoration(
+                            color: theme.colorScheme.primary.withValues(alpha: 0.08),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Text(
+                            cat,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.primary,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-              onPressed: isMobile ? widget.onSearchTap : null,
             ),
-            const SizedBox(width: 16),
-            // Wishlist
-            _IconWithBadge(
-              icon: Icons.favorite_border,
-              onTap: widget.onWishlistTap,
-              badge: null,
-            ),
-            const SizedBox(width: 16),
-            // Notifications
-            _IconWithBadge(
-              icon: Icons.notifications_outlined,
-              onTap: widget.onNotificationTap,
-              badge: 2,
-            ),
-            const SizedBox(width: 16),
-            // Cart
-            _IconWithBadge(
-              icon: Icons.shopping_cart_outlined,
-              onTap: widget.onCartTap,
-              badge: cartProvider.itemCount > 0 ? cartProvider.itemCount : null,
-            ),
-            const SizedBox(width: 16),
-            // User avatar
-            CircleAvatar(
-              radius: 18,
-              backgroundColor: AppTheme.primary.withOpacity(0.2),
-              child: const Icon(Icons.person, color: AppTheme.primary, size: 20),
-            ),
-          ],
-        ),
+          ),
+          const SizedBox(width: 16),
+          // Wishlist
+          _IconWithBadge(
+            icon: Icons.favorite_border,
+            onTap: widget.onWishlistTap,
+            badge: null,
+          ),
+          // Notifications
+          _IconWithBadge(
+            icon: Icons.notifications_outlined,
+            onTap: widget.onNotificationTap,
+            badge: 2,
+          ),
+          // Cart
+          _IconWithBadge(
+            icon: Icons.shopping_cart_outlined,
+            onTap: widget.onCartTap,
+            badge: cartProvider.itemCount > 0 ? cartProvider.itemCount : null,
+          ),
+          // Avatar
+          _AvatarButton(onTap: () {}),
+        ],
       ),
     );
   }
@@ -130,38 +256,71 @@ class _IconWithBadge extends StatelessWidget {
 
   const _IconWithBadge({
     required this.icon,
-    required this.onTap,
+    this.onTap,
     this.badge,
   });
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      onPressed: onTap,
-      icon: Stack(
-        alignment: Alignment.topRight,
-        children: [
-          Icon(icon, color: Theme.of(context).textTheme.bodyMedium?.color),
-          if (badge != null && badge! > 0)
-            Container(
-              width: 20,
-              height: 20,
-              decoration: BoxDecoration(
-                color: AppTheme.destructive,
-                shape: BoxShape.circle,
-              ),
-              child: Center(
-                child: Text(
-                  badge.toString(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 12,
-                    fontWeight: FontWeight.bold,
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2),
+      child: IconButton(
+        onPressed: onTap,
+        icon: Stack(
+          clipBehavior: Clip.none,
+          alignment: Alignment.topRight,
+          children: [
+            Icon(icon, size: 22, color: theme.colorScheme.onSurface),
+            if (badge != null && badge! > 0)
+              Positioned(
+                right: -6,
+                top: -6,
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.error,
+                    shape: BoxShape.circle,
+                  ),
+                  child: Center(
+                    child: Text(
+                      badge! > 9 ? '9+' : badge.toString(),
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontSize: 10,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
+        splashRadius: 20,
+      ),
+    );
+  }
+}
+
+class _AvatarButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _AvatarButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.only(left: 4),
+      child: CircleAvatar(
+        radius: 16,
+        backgroundColor: theme.colorScheme.primary.withValues(alpha: 0.15),
+        child: Icon(
+          Icons.person_outline,
+          size: 18,
+          color: theme.colorScheme.primary,
+        ),
       ),
     );
   }

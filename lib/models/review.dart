@@ -1,4 +1,5 @@
 class Review {
+  final String? id;
   final String productId;
   final String userId;
   final String userName;
@@ -11,6 +12,7 @@ class Review {
   final String status;
 
   Review({
+    this.id,
     required this.productId,
     required this.userId,
     required this.userName,
@@ -25,21 +27,23 @@ class Review {
 
   factory Review.fromJson(Map<String, dynamic> json) {
     return Review(
-      productId: json['productId'] ?? '',
-      userId: json['userId'] ?? '',
-      userName: json['userName'] ?? '',
+      id: json['id'] ?? '',
+      productId: json['productId'] ?? json['product_id'] ?? '',
+      userId: json['userId'] ?? json['user_id'] ?? '',
+      userName: json['userName'] ?? json['user_name'] ?? '',
       rating: json['rating'] ?? 1,
       title: json['title'] ?? '',
       comment: json['comment'] ?? '',
       images: List<String>.from(json['images'] ?? []),
-      helpfulCount: json['helpfulCount'] ?? 0,
-      verifiedPurchase: json['verifiedPurchase'] ?? false,
+      helpfulCount: json['helpfulCount'] ?? json['helpful_count'] ?? 0,
+      verifiedPurchase: json['verifiedPurchase'] ?? json['verified_purchase'] ?? false,
       status: json['status'] ?? 'pending',
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
+      'id': id,
       'productId': productId,
       'userId': userId,
       'userName': userName,

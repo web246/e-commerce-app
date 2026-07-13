@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../theme/app_theme.dart';
 
 class ForgotPasswordScreen extends StatefulWidget {
@@ -12,6 +13,8 @@ class ForgotPasswordScreen extends StatefulWidget {
 class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
   final _emailController = TextEditingController();
   bool _submitted = false;
+  bool _isLoading = false;
+  String? _error;
 
   @override
   void dispose() {
@@ -19,12 +22,18 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
     super.dispose();
   }
 
-  void _handleSubmit() {
-    if (_emailController.text.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Please enter your email')));
-      return;
+  Future<void> _handleSubmit() async {
+    if (_emailController.text.trim().isEmpty) return;
+    setState(() { _isLoading = true; _error = null; });
+    try {
+      await Supabase.instance.client.auth.resetPasswordForEmail(
+        _emailController.text.trim(),
+        redirectTo: null,
+      );
+      setState(() { _submitted = true; _isLoading = false; });
+    } catch (e) {
+      setState(() { _isLoading = false; _error = e.toString(); });
     }
-    setState(() => _submitted = true);
   }
 
   @override
@@ -82,6 +91,29 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           textAlign: TextAlign.center,
         ),
         const SizedBox(height: 24),
+        if (_error != null) ...[
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: AppTheme.destructive.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.error_outline, color: AppTheme.destructive, size: 20),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    _error!,
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.destructive),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 16),
+        ],
         TextField(
           controller: _emailController,
           decoration: InputDecoration(
@@ -95,8 +127,14 @@ class _ForgotPasswordScreenState extends State<ForgotPasswordScreen> {
           width: double.infinity,
           height: 56,
           child: ElevatedButton(
-            onPressed: _handleSubmit,
-            child: const Text('Send Reset Link'),
+            onPressed: _isLoading ? null : _handleSubmit,
+            child: _isLoading
+                ? const SizedBox(
+                    width: 24,
+                    height: 24,
+                    child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white)),
+                  )
+                : const Text('Send Reset Link'),
           ),
         ),
         const SizedBox(height: 16),

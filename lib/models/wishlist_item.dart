@@ -17,12 +17,12 @@ class WishlistItem {
 
   factory WishlistItem.fromJson(Map<String, dynamic> json) {
     return WishlistItem(
-      productId: json['productId'] ?? '',
-      productName: json['productName'] ?? '',
-      productImage: json['productImage'] ?? '',
-      productPrice: (json['productPrice'] as num?)?.toDouble() ?? 0.0,
-      storeId: json['storeId'] ?? '',
-      storeName: json['storeName'] ?? '',
+      productId: json['productId'] ?? json['product_id'] ?? '',
+      productName: json['productName'] ?? json['product_name'] ?? '',
+      productImage: json['productImage'] ?? json['product_image'] ?? '',
+      productPrice: (json['productPrice'] ?? json['product_price'] as num?)?.toDouble() ?? 0.0,
+      storeId: json['storeId'] ?? json['store_id'] ?? '',
+      storeName: json['storeName'] ?? json['store_name'] ?? '',
     );
   }
 

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+
 import '../models/product.dart';
+import '../services/product_repository.dart';
 import '../theme/app_theme.dart';
-import '../widgets/common/product_card.dart';
+import '../widgets/widgets.dart';
 
 class SearchScreen extends StatefulWidget {
   final String? categorySlug;
@@ -18,62 +20,55 @@ class _SearchScreenState extends State<SearchScreen> {
   String _sortBy = 'relevance';
   bool _freeShippingOnly = false;
 
-  List<Product> get _filteredProducts {
-    final query = _searchController.text.toLowerCase().trim();
-    if (query.isEmpty) return _sampleProducts;
-    return _sampleProducts.where((p) =>
-      p.name.toLowerCase().contains(query) ||
-      p.storeName.toLowerCase().contains(query) ||
-      p.category.toLowerCase().contains(query)
-    ).toList();
+  List<Product> get _baseProducts {
+    if (widget.categorySlug != null && widget.categorySlug!.isNotEmpty) {
+      return ProductRepository.getByCategory(widget.categorySlug!);
+    }
+    return ProductRepository.getAll();
   }
 
-  final List<Product> _sampleProducts = [
-    Product(
-      name: 'Premium Wireless Headphones',
-      slug: 'premium-wireless-headphones',
-      description: 'High-quality sound with noise cancellation',
-      storeId: 'store-1',
-      storeName: 'Electronics Pro',
-      category: 'Electronics',
-      subcategory: 'Audio',
-      brand: 'AudioMax',
-      price: 45000,
-      oldPrice: 60000,
-      currency: 'KES',
-      images: [],
-      thumbnail: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500',
-      sku: 'AUDIO-MAX-001',
-      rating: 4.8,
-      reviewsCount: 1250,
-      soldCount: 3500,
-      status: ProductStatus.active,
-      freeShipping: true,
-      isBestSeller: true,
-    ),
-    Product(
-      name: 'iPhone 15 Pro',
-      slug: 'iphone-15-pro',
-      description: 'Latest iPhone with A17 Pro chip',
-      storeId: 'store-1',
-      storeName: 'Apple Store',
-      category: 'Phones',
-      subcategory: 'Smartphones',
-      brand: 'Apple',
-      price: 120000,
-      oldPrice: 150000,
-      currency: 'KES',
-      images: [],
-      thumbnail: 'https://images.unsplash.com/photo-1556656793-08538906a9f8?w=500',
-      sku: 'IPHONE-15-PRO',
-      rating: 4.8,
-      reviewsCount: 1250,
-      soldCount: 3500,
-      status: ProductStatus.active,
-      freeShipping: true,
-      isBestSeller: true,
-    ),
-  ];
+  List<Product> get _filteredProducts {
+    final base = _baseProducts;
+
+    // Apply search query filter
+    final query = _searchController.text.toLowerCase().trim();
+    List<Product> results;
+    if (query.isEmpty) {
+      results = base;
+    } else {
+      results = base
+          .where((p) =>
+              p.name.toLowerCase().contains(query) ||
+              p.storeName.toLowerCase().contains(query) ||
+              p.category.toLowerCase().contains(query))
+          .toList();
+    }
+
+    // Apply free shipping filter
+    if (_freeShippingOnly) {
+      results = results.where((p) => p.freeShipping).toList();
+    }
+
+    // Apply sorting
+    switch (_sortBy) {
+      case 'price_asc':
+        results.sort((a, b) => a.price.compareTo(b.price));
+        break;
+      case 'price_desc':
+        results.sort((a, b) => b.price.compareTo(a.price));
+        break;
+      case 'rating':
+        results.sort((a, b) => b.rating.compareTo(a.rating));
+        break;
+      case 'newest':
+        results = results.reversed.toList();
+        break;
+      default:
+        break;
+    }
+
+    return results;
+  }
 
   @override
   void dispose() {
@@ -88,13 +83,18 @@ class _SearchScreenState extends State<SearchScreen> {
     final gridCount = width < 600 ? 2 : width < 960 ? 3 : 4;
     final childAspectRatio = width < 600 ? 0.72 : width < 960 ? 0.74 : 0.80;
 
+    final results = _filteredProducts;
+    final isEmpty = results.isEmpty;
+
     return Scaffold(
       appBar: AppBar(
         leading: IconButton(
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
         ),
-        title: const Text('Search'),
+        title: Text(widget.categorySlug != null
+            ? widget.categorySlug!
+            : 'Search'),
       ),
       body: Row(
         children: [
@@ -104,7 +104,8 @@ class _SearchScreenState extends State<SearchScreen> {
               width: 256,
               child: Container(
                 decoration: BoxDecoration(
-                  border: Border(right: BorderSide(color: AppTheme.border)),
+                  border:
+                      Border(right: BorderSide(color: AppTheme.border)),
                 ),
                 padding: const EdgeInsets.all(16),
                 child: _buildFilters(),
@@ -125,8 +126,10 @@ class _SearchScreenState extends State<SearchScreen> {
                           decoration: InputDecoration(
                             hintText: 'Search products...',
                             prefixIcon: const Icon(Icons.search),
-                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                            border: OutlineInputBorder(
+                                borderRadius: BorderRadius.circular(8)),
                           ),
+                          onChanged: (_) => setState(() {}),
                         ),
                       ),
                       const SizedBox(width: 8),
@@ -144,50 +147,72 @@ class _SearchScreenState extends State<SearchScreen> {
                         DropdownButton<String>(
                           value: _sortBy,
                           items: [
-                            DropdownMenuItem(value: 'relevance', child: Text('Relevance')),
-                            DropdownMenuItem(value: 'price_asc', child: Text('Price: Low to High')),
-                            DropdownMenuItem(value: 'price_desc', child: Text('Price: High to Low')),
-                            DropdownMenuItem(value: 'rating', child: Text('Top Rated')),
-                            DropdownMenuItem(value: 'newest', child: Text('Newest')),
+                            DropdownMenuItem(
+                                value: 'relevance',
+                                child: Text('Relevance')),
+                            DropdownMenuItem(
+                                value: 'price_asc',
+                                child: Text('Price: Low to High')),
+                            DropdownMenuItem(
+                                value: 'price_desc',
+                                child: Text('Price: High to Low')),
+                            DropdownMenuItem(
+                                value: 'rating',
+                                child: Text('Top Rated')),
+                            DropdownMenuItem(
+                                value: 'newest',
+                                child: Text('Newest')),
                           ],
-                          onChanged: (value) => setState(() => _sortBy = value!),
+                          onChanged: (value) =>
+                              setState(() => _sortBy = value!),
                         ),
                     ],
                   ),
                 ),
                 // Product Grid / Empty State
                 Expanded(
-                  child: _searchController.text.isNotEmpty && _filteredProducts.isEmpty
+                  child: isEmpty
                       ? Center(
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.search_off, size: 64, color: AppTheme.mutedForeground),
+                              const Icon(Icons.search_off,
+                                  size: 64,
+                                  color: AppTheme.mutedForeground),
                               const SizedBox(height: 16),
                               Text(
                                 'No results found',
-                                style: Theme.of(context).textTheme.headlineSmall,
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .headlineSmall,
                               ),
                               const SizedBox(height: 8),
                               Text(
                                 'Try adjusting your search terms',
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.mutedForeground),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
+                                        color:
+                                            AppTheme.mutedForeground),
                               ),
                             ],
                           ),
                         )
                       : GridView.builder(
                           padding: const EdgeInsets.all(16),
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: gridCount,
                             mainAxisSpacing: 16,
                             crossAxisSpacing: 16,
                             childAspectRatio: childAspectRatio,
                           ),
-                          itemCount: _filteredProducts.length,
+                          itemCount: results.length,
                           itemBuilder: (context, index) => ProductCard(
-                            product: _filteredProducts[index],
-                            onTap: () => context.go('/product/${_filteredProducts[index].slug}'),
+                            product: results[index],
+                            onTap: () =>
+                                context.go('/product/${results[index].slug}'),
                           ),
                         ),
                 ),
@@ -207,9 +232,11 @@ class _SearchScreenState extends State<SearchScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Filters', style: Theme.of(context).textTheme.titleLarge),
+              Text('Filters',
+                  style: Theme.of(context).textTheme.titleLarge),
               TextButton(
-                onPressed: () => setState(() => _freeShippingOnly = false),
+                onPressed: () =>
+                    setState(() => _freeShippingOnly = false),
                 child: const Text('Clear'),
               ),
             ],
@@ -218,18 +245,22 @@ class _SearchScreenState extends State<SearchScreen> {
           CheckboxListTile(
             title: const Text('Free Shipping Only'),
             value: _freeShippingOnly,
-            onChanged: (value) => setState(() => _freeShippingOnly = value ?? false),
+            onChanged: (value) =>
+                setState(() => _freeShippingOnly = value ?? false),
             controlAffinity: ListTileControlAffinity.leading,
           ),
           const SizedBox(height: 16),
-          Text('Category', style: Theme.of(context).textTheme.titleLarge),
+          Text('Category',
+              style: Theme.of(context).textTheme.titleLarge),
           const SizedBox(height: 8),
-          ...['Electronics', 'Fashion', 'Phones', 'Computers'].map((category) {
+          ...['Electronics', 'Fashion', 'Phones', 'Computers'].map(
+              (category) {
             return Padding(
               padding: const EdgeInsets.only(bottom: 8),
               child: TextButton(
                 onPressed: () => context.go('/categories/$category'),
-                style: TextButton.styleFrom(alignment: Alignment.centerLeft),
+                style: TextButton.styleFrom(
+                    alignment: Alignment.centerLeft),
                 child: Text(category),
               ),
             );

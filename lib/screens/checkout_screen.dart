@@ -1,7 +1,13 @@
+import 'dart:math';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
 import 'package:provider/provider.dart';
-import '../providers/cart_provider.dart';
+
+import '../models/order.dart';
+import '../providers/providers.dart';
+import '../services/order_storage.dart';
 import '../theme/app_theme.dart';
 
 class CheckoutScreen extends StatefulWidget {
@@ -16,6 +22,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   String _selectedDelivery = 'standard';
   String _selectedPayment = 'mpesa';
 
+  final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _phoneController = TextEditingController();
   final _areaController = TextEditingController();
@@ -37,6 +44,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   void _nextStep() {
+    if (_currentStep == 0) {
+      if (!_formKey.currentState!.validate()) {
+        return;
+      }
+    }
     if (_currentStep < 3) {
       setState(() => _currentStep++);
     }
@@ -44,7 +56,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
 
   void _placeOrder() async {
     setState(() => _processing = true);
-    
+
     if (_selectedPayment == 'mpesa') {
       // Show M-Pesa modal
       showDialog(
@@ -55,13 +67,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           content: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              const Icon(Icons.phone_android, size: 48, color: AppTheme.primary),
+              const Icon(Icons.phone_android,
+                  size: 48, color: AppTheme.primary),
               const SizedBox(height: 16),
               const Text('Check Your Phone'),
               const SizedBox(height: 16),
               const CircularProgressIndicator(),
               const SizedBox(height: 16),
-              const Text('You will receive an STK push prompt on your phone'),
+              const Text(
+                  'You will receive an STK push prompt on your phone'),
             ],
           ),
         ),
@@ -72,10 +86,138 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       Navigator.of(context).pop();
     }
 
-    setState(() => _processing = false);
-    await context.read<CartProvider>().clearCart();
-    if (!mounted) return;
-    context.go('/order-success');
+    try {
+      final cart = context.read<CartProvider>();
+      final auth = context.read<AuthProvider>();
+
+      final items = cart.items.map((item) => {
+        'name': item.product.name,
+        'quantity': item.quantity,
+        'price': item.product.price,
+      }).toList();
+
+      final subtotal = cart.subtotal;
+      double shippingFee = _selectedDelivery == 'pickup' ? 0.0 : 150.0;
+
+      // Calculate coupon discount
+      double discount = 0;
+      if (cart.coupon != null && cart.coupon!.isNotEmpty) {
+        const coupons = {
+          'SAVE10': {'type': 'percent', 'value': 10},
+          'WELCOME20': {'type': 'percent', 'value': 20},
+          'FREESHIP': {'type': 'free_shipping', 'value': 0},
+          'FLAT500': {'type': 'fixed', 'value': 500},
+        };
+        final couponData = coupons[cart.coupon];
+        if (couponData != null) {
+          switch (couponData['type']) {
+            case 'percent':
+              discount = subtotal * (couponData['value'] as int) / 100;
+              break;
+            case 'fixed':
+              discount = (couponData['value'] as int).toDouble();
+              break;
+            case 'free_shipping':
+              shippingFee = 0.0;
+              break;
+          }
+        }
+      }
+
+      final double total =
+          (subtotal + shippingFee - discount).clamp(0.0, double.infinity);
+
+      // Map delivery method to enum
+      DeliveryMethod deliveryMethod;
+      switch (_selectedDelivery) {
+        case 'boda':
+          deliveryMethod = DeliveryMethod.bodaExpress;
+          break;
+        case 'pickup':
+          deliveryMethod = DeliveryMethod.pickup;
+          break;
+        default:
+          deliveryMethod = DeliveryMethod.standard;
+      }
+
+      // Map payment method to enum
+      PaymentMethod paymentMethod;
+      switch (_selectedPayment) {
+        case 'card':
+          paymentMethod = PaymentMethod.card;
+          break;
+        case 'paypal':
+          paymentMethod = PaymentMethod.paypal;
+          break;
+        case 'cod':
+          paymentMethod = PaymentMethod.cashOnDelivery;
+          break;
+        default:
+          paymentMethod = PaymentMethod.mpesa;
+      }
+
+      final random = Random();
+      final orderNumber =
+          'ORD-${random.nextInt(99999).toString().padLeft(5, '0')}-${random.nextInt(9999).toString().padLeft(4, '0')}';
+
+      DateTime estimatedDelivery;
+      switch (_selectedDelivery) {
+        case 'boda':
+          estimatedDelivery = DateTime.now().add(const Duration(hours: 6));
+          break;
+        case 'pickup':
+          estimatedDelivery = DateTime.now().add(const Duration(hours: 2));
+          break;
+        default:
+          estimatedDelivery = DateTime.now().add(const Duration(days: 3));
+      }
+
+      final order = Order(
+        orderNumber: orderNumber,
+        buyerId: auth.user?.id ?? 'guest',
+        buyerName: auth.user?.name ?? _nameController.text,
+        buyerEmail: auth.user?.email ?? '',
+        buyerPhone: _phoneController.text,
+        items: items,
+        subtotal: subtotal,
+        shippingFee: shippingFee,
+        tax: 0,
+        discount: discount,
+        total: total,
+        status: OrderStatus.confirmed,
+        paymentMethod: paymentMethod,
+        paymentStatus: PaymentStatus.paid,
+        shippingAddress: {
+          'name': _nameController.text,
+          'phone': _phoneController.text,
+          'area': _areaController.text,
+          'town': _townController.text,
+          'county': _countyController.text,
+        },
+        deliveryMethod: deliveryMethod,
+        estimatedDelivery: estimatedDelivery,
+        couponCode: cart.coupon ?? '',
+        timeline: [
+          {
+            'status': 'Confirmed',
+            'timestamp': DateFormat('MMM d, h:mm a').format(DateTime.now()),
+          },
+        ],
+      );
+
+      await OrderStorage.saveOrder(order);
+
+      setState(() => _processing = false);
+      await cart.clearCart();
+      if (!mounted) return;
+      context.go('/order-success', extra: order);
+    } catch (e) {
+      setState(() => _processing = false);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to place order: $e')),
+      );
+    }
   }
 
   @override
@@ -107,16 +249,21 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                           width: 40,
                           height: 40,
                           decoration: BoxDecoration(
-                            color: i <= _currentStep ? AppTheme.primary : AppTheme.muted,
+                            color: i <= _currentStep
+                                ? AppTheme.primary
+                                : AppTheme.muted,
                             shape: BoxShape.circle,
                           ),
                           child: Center(
                             child: i < _currentStep
-                                ? const Icon(Icons.check, color: Colors.white, size: 20)
+                                ? const Icon(Icons.check,
+                                    color: Colors.white, size: 20)
                                 : Text(
                                     '${i + 1}',
                                     style: TextStyle(
-                                      color: i <= _currentStep ? Colors.white : AppTheme.mutedForeground,
+                                      color: i <= _currentStep
+                                          ? Colors.white
+                                          : AppTheme.mutedForeground,
                                       fontWeight: FontWeight.bold,
                                     ),
                                   ),
@@ -125,9 +272,12 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                         if (i < 3)
                           Expanded(
                             child: Container(
-                              margin: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                              margin: const EdgeInsets.symmetric(
+                                  horizontal: 4, vertical: 8),
                               height: 2,
-                              color: i < _currentStep ? AppTheme.primary : AppTheme.muted,
+                              color: i < _currentStep
+                                  ? AppTheme.primary
+                                  : AppTheme.muted,
                             ),
                           ),
                       ],
@@ -137,7 +287,14 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
               ),
               const SizedBox(height: 24),
               // Step Content
-              if (_currentStep == 0) _buildAddressStep() else if (_currentStep == 1) _buildDeliveryStep() else if (_currentStep == 2) _buildPaymentStep() else _buildReviewStep(cartProvider),
+              if (_currentStep == 0)
+                _buildAddressStep()
+              else if (_currentStep == 1)
+                _buildDeliveryStep()
+              else if (_currentStep == 2)
+                _buildPaymentStep()
+              else
+                _buildReviewStep(cartProvider),
               const SizedBox(height: 24),
               // Navigation Buttons
               Row(
@@ -152,8 +309,16 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                   if (_currentStep > 0) const SizedBox(width: 12),
                   Expanded(
                     child: ElevatedButton(
-                      onPressed: _currentStep < 3 ? _nextStep : (_processing ? null : _placeOrder),
-                      child: _processing ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2)) : Text(_currentStep < 3 ? 'Continue' : 'Place Order'),
+                      onPressed: _currentStep < 3
+                          ? _nextStep
+                          : (_processing ? null : _placeOrder),
+                      child: _processing
+                          ? const SizedBox(
+                              height: 20,
+                              width: 20,
+                              child: CircularProgressIndicator(
+                                  strokeWidth: 2))
+                          : Text(_currentStep < 3 ? 'Continue' : 'Place Order'),
                     ),
                   ),
                 ],
@@ -166,51 +331,90 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Widget _buildAddressStep() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text('Delivery Address', style: Theme.of(context).textTheme.headlineSmall),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _nameController,
-          decoration: InputDecoration(
-            hintText: 'Full Name',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+    return Form(
+      key: _formKey,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Delivery Address',
+              style: Theme.of(context).textTheme.headlineSmall),
+          const SizedBox(height: 16),
+          TextFormField(
+            controller: _nameController,
+            decoration: InputDecoration(
+              hintText: 'Full Name',
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'Please enter your name';
+              }
+              return null;
+            },
           ),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _phoneController,
-          decoration: InputDecoration(
-            hintText: 'Phone Number',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _phoneController,
+            decoration: InputDecoration(
+              hintText: 'Phone Number',
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'Please enter your phone number';
+              }
+              return null;
+            },
           ),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _areaController,
-          decoration: InputDecoration(
-            hintText: 'Area / Street',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _areaController,
+            decoration: InputDecoration(
+              hintText: 'Area / Street',
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'Please enter your address';
+              }
+              return null;
+            },
           ),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _townController,
-          decoration: InputDecoration(
-            hintText: 'Town / City',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _townController,
+            decoration: InputDecoration(
+              hintText: 'Town / City',
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'Please enter your city';
+              }
+              return null;
+            },
           ),
-        ),
-        const SizedBox(height: 12),
-        TextField(
-          controller: _countyController,
-          decoration: InputDecoration(
-            hintText: 'County',
-            border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+          const SizedBox(height: 12),
+          TextFormField(
+            controller: _countyController,
+            decoration: InputDecoration(
+              hintText: 'County',
+              border:
+                  OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+            ),
+            validator: (value) {
+              if (value == null || value.trim().isEmpty) {
+                return 'Please enter your county';
+              }
+              return null;
+            },
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 
@@ -218,13 +422,15 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Delivery Method', style: Theme.of(context).textTheme.headlineSmall),
+        Text('Delivery Method',
+            style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 16),
         _DeliveryOption(
           title: 'Boda Express',
           subtitle: 'Get it today',
           price: 'KES 250',
-          selected: _selectedDelivery == 'boda',
+          value: 'boda',
+          groupValue: _selectedDelivery,
           onTap: () => setState(() => _selectedDelivery = 'boda'),
         ),
         const SizedBox(height: 12),
@@ -232,7 +438,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           title: 'Standard',
           subtitle: '2-3 days delivery',
           price: 'KES 150',
-          selected: _selectedDelivery == 'standard',
+          value: 'standard',
+          groupValue: _selectedDelivery,
           onTap: () => setState(() => _selectedDelivery = 'standard'),
         ),
         const SizedBox(height: 12),
@@ -240,7 +447,8 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
           title: 'Self Pickup',
           subtitle: 'Pick up from store',
           price: 'FREE',
-          selected: _selectedDelivery == 'pickup',
+          value: 'pickup',
+          groupValue: _selectedDelivery,
           onTap: () => setState(() => _selectedDelivery = 'pickup'),
         ),
       ],
@@ -251,33 +459,38 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Payment Method', style: Theme.of(context).textTheme.headlineSmall),
+        Text('Payment Method',
+            style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 16),
         _PaymentOption(
           title: 'M-Pesa',
           icon: Icons.payment,
-          selected: _selectedPayment == 'mpesa',
+          value: 'mpesa',
+          groupValue: _selectedPayment,
           onTap: () => setState(() => _selectedPayment = 'mpesa'),
         ),
         const SizedBox(height: 12),
         _PaymentOption(
           title: 'Card',
           icon: Icons.credit_card,
-          selected: _selectedPayment == 'card',
+          value: 'card',
+          groupValue: _selectedPayment,
           onTap: () => setState(() => _selectedPayment = 'card'),
         ),
         const SizedBox(height: 12),
         _PaymentOption(
           title: 'PayPal',
           icon: Icons.account_balance_wallet,
-          selected: _selectedPayment == 'paypal',
+          value: 'paypal',
+          groupValue: _selectedPayment,
           onTap: () => setState(() => _selectedPayment = 'paypal'),
         ),
         const SizedBox(height: 12),
         _PaymentOption(
           title: 'Cash on Delivery',
           icon: Icons.money,
-          selected: _selectedPayment == 'cod',
+          value: 'cod',
+          groupValue: _selectedPayment,
           onTap: () => setState(() => _selectedPayment = 'cod'),
         ),
       ],
@@ -285,10 +498,43 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
   }
 
   Widget _buildReviewStep(CartProvider cartProvider) {
+    const coupons = {
+      'SAVE10': {'type': 'percent', 'value': 10},
+      'WELCOME20': {'type': 'percent', 'value': 20},
+      'FREESHIP': {'type': 'free_shipping', 'value': 0},
+      'FLAT500': {'type': 'fixed', 'value': 500},
+    };
+
+    double discount = 0;
+    bool freeShippingCoupon = false;
+    if (cartProvider.coupon != null && cartProvider.coupon!.isNotEmpty) {
+      final couponData = coupons[cartProvider.coupon];
+      if (couponData != null) {
+        switch (couponData['type']) {
+          case 'percent':
+            discount =
+                cartProvider.subtotal * (couponData['value'] as int) / 100;
+            break;
+          case 'fixed':
+            discount = (couponData['value'] as int).toDouble();
+            break;
+          case 'free_shipping':
+            freeShippingCoupon = true;
+            break;
+        }
+      }
+    }
+
+    final deliveryCost =
+        (_selectedDelivery == 'pickup' || freeShippingCoupon) ? 0 : 150;
+    final double total =
+        (cartProvider.subtotal + deliveryCost - discount).clamp(0.0, double.infinity);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text('Order Review', style: Theme.of(context).textTheme.headlineSmall),
+        Text('Order Review',
+            style: Theme.of(context).textTheme.headlineSmall),
         const SizedBox(height: 16),
         ...cartProvider.items.map((item) {
           return Padding(
@@ -304,7 +550,10 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
                 ),
                 Text(
                   'KES ${(item.product.price * item.quantity).toStringAsFixed(0)}',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(fontWeight: FontWeight.bold),
                 ),
               ],
             ),
@@ -315,16 +564,35 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Subtotal', style: Theme.of(context).textTheme.bodyMedium),
-            Text('KES ${cartProvider.subtotal.toStringAsFixed(0)}', style: Theme.of(context).textTheme.bodyMedium),
+            Text('Subtotal',
+                style: Theme.of(context).textTheme.bodyMedium),
+            Text('KES ${cartProvider.subtotal.toStringAsFixed(0)}',
+                style: Theme.of(context).textTheme.bodyMedium),
           ],
         ),
+        if (discount > 0) ...[
+          const SizedBox(height: 8),
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text('Discount',
+                  style: Theme.of(context).textTheme.bodyMedium),
+              Text('-KES ${discount.toStringAsFixed(0)}',
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: Colors.green)),
+            ],
+          ),
+        ],
         const SizedBox(height: 8),
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Delivery', style: Theme.of(context).textTheme.bodyMedium),
-            Text(_selectedDelivery == 'pickup' ? 'FREE' : 'KES 150', style: Theme.of(context).textTheme.bodyMedium),
+            Text('Delivery',
+                style: Theme.of(context).textTheme.bodyMedium),
+            Text(deliveryCost == 0 ? 'FREE' : 'KES $deliveryCost',
+                style: Theme.of(context).textTheme.bodyMedium),
           ],
         ),
         const SizedBox(height: 12),
@@ -333,10 +601,18 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('Total', style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold)),
+            Text('Total',
+                style: Theme.of(context)
+                    .textTheme
+                    .headlineSmall
+                    ?.copyWith(fontWeight: FontWeight.bold)),
             Text(
-              'KES ${(cartProvider.subtotal + (_selectedDelivery == 'pickup' ? 0 : 150)).toStringAsFixed(0)}',
-              style: Theme.of(context).textTheme.headlineSmall?.copyWith(fontWeight: FontWeight.bold, color: AppTheme.primary),
+              'KES ${total.toStringAsFixed(0)}',
+              style: Theme.of(context)
+                  .textTheme
+                  .headlineSmall
+                  ?.copyWith(
+                      fontWeight: FontWeight.bold, color: AppTheme.primary),
             ),
           ],
         ),
@@ -349,33 +625,40 @@ class _DeliveryOption extends StatelessWidget {
   final String title;
   final String subtitle;
   final String price;
-  final bool selected;
+  final String value;
+  final String groupValue;
   final VoidCallback onTap;
 
   const _DeliveryOption({
     required this.title,
     required this.subtitle,
     required this.price,
-    required this.selected,
+    required this.value,
+    required this.groupValue,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isSelected = value == groupValue;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          border: Border.all(color: selected ? AppTheme.primary : AppTheme.border, width: selected ? 2 : 1),
+          border: Border.all(
+            color: isSelected ? AppTheme.primary : AppTheme.border,
+            width: isSelected ? 2 : 1,
+          ),
           borderRadius: BorderRadius.circular(8),
-          color: selected ? AppTheme.primary.withOpacity(0.05) : Colors.transparent,
+          color:
+              isSelected ? AppTheme.primary.withOpacity(0.05) : Colors.transparent,
         ),
         child: Row(
           children: [
-            Radio(
-              value: title,
-              groupValue: selected ? title : '',
+            Radio<String>(
+              value: value,
+              groupValue: groupValue,
               onChanged: (_) => onTap(),
             ),
             const SizedBox(width: 8),
@@ -383,12 +666,21 @@ class _DeliveryOption extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(title, style: Theme.of(context).textTheme.titleLarge),
-                  Text(subtitle, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.mutedForeground)),
+                  Text(title,
+                      style: Theme.of(context).textTheme.titleLarge),
+                  Text(subtitle,
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodySmall
+                          ?.copyWith(color: AppTheme.mutedForeground)),
                 ],
               ),
             ),
-            Text(price, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+            Text(price,
+                style: Theme.of(context)
+                    .textTheme
+                    .titleLarge
+                    ?.copyWith(fontWeight: FontWeight.bold)),
           ],
         ),
       ),
@@ -399,38 +691,49 @@ class _DeliveryOption extends StatelessWidget {
 class _PaymentOption extends StatelessWidget {
   final String title;
   final IconData icon;
-  final bool selected;
+  final String value;
+  final String groupValue;
   final VoidCallback onTap;
 
   const _PaymentOption({
     required this.title,
     required this.icon,
-    required this.selected,
+    required this.value,
+    required this.groupValue,
     required this.onTap,
   });
 
   @override
   Widget build(BuildContext context) {
+    final isSelected = value == groupValue;
     return GestureDetector(
       onTap: onTap,
       child: Container(
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
-          border: Border.all(color: selected ? AppTheme.primary : AppTheme.border, width: selected ? 2 : 1),
+          border: Border.all(
+            color: isSelected ? AppTheme.primary : AppTheme.border,
+            width: isSelected ? 2 : 1,
+          ),
           borderRadius: BorderRadius.circular(8),
-          color: selected ? AppTheme.primary.withOpacity(0.05) : Colors.transparent,
+          color:
+              isSelected ? AppTheme.primary.withOpacity(0.05) : Colors.transparent,
         ),
         child: Row(
           children: [
-            Radio(
-              value: title,
-              groupValue: selected ? title : '',
+            Radio<String>(
+              value: value,
+              groupValue: groupValue,
               onChanged: (_) => onTap(),
             ),
             const SizedBox(width: 8),
-            Icon(icon, color: selected ? AppTheme.primary : AppTheme.mutedForeground),
+            Icon(icon,
+                color: isSelected
+                    ? AppTheme.primary
+                    : AppTheme.mutedForeground),
             const SizedBox(width: 12),
-            Text(title, style: Theme.of(context).textTheme.titleLarge),
+            Text(title,
+                style: Theme.of(context).textTheme.titleLarge),
           ],
         ),
       ),

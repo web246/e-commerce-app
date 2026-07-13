@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+
+import '../config/constants.dart';
 import '../theme/app_theme.dart';
 
 class OnboardingScreen extends StatefulWidget {
@@ -49,7 +51,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
 
   Future<void> _completeOnboarding() async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool('onboarding_seen', true);
+    await prefs.setBool(AppConstants.prefsOnboardingSeen, true);
     if (!mounted) return;
     context.go('/login');
   }
@@ -70,7 +72,7 @@ class _OnboardingScreenState extends State<OnboardingScreen> {
                     child: const Text('Back'),
                   ),
                   TextButton(
-                    onPressed: _currentPage < pages.length - 1 ? () => _completeOnboarding() : null,
+                    onPressed: _completeOnboarding,
                     child: const Text('Skip'),
                   ),
                 ],

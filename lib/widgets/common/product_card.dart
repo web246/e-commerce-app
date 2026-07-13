@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+
 import '../../models/product.dart';
 import '../../models/wishlist_item.dart';
-import '../../providers/wishlist_provider.dart';
+import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
 
 class ProductCard extends StatefulWidget {
@@ -44,7 +45,7 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
   @override
   Widget build(BuildContext context) {
     final wishlistProvider = context.watch<WishlistProvider>();
-     final isWishlisted = wishlistProvider.isWishlisted(widget.product.name);
+     final isWishlisted = wishlistProvider.isInWishlist(widget.product.slug);
      final displayPrice = widget.product.price;
      final oldPrice = widget.product.oldPrice ?? widget.product.price;
      final discount = ((oldPrice - displayPrice) / oldPrice * 100).toInt();
@@ -132,14 +133,14 @@ class _ProductCardState extends State<ProductCard> with SingleTickerProviderStat
                     child: GestureDetector(
                       onTap: () {
                          final wishlistItem = WishlistItem(
-                           productId: widget.product.name,
+                           productId: widget.product.slug,
                            productName: widget.product.name,
                            productImage: widget.product.thumbnail,
                            productPrice: widget.product.price,
                            storeId: widget.product.storeId,
                            storeName: widget.product.storeName,
                         );
-                        context.read<WishlistProvider>().toggle(wishlistItem);
+                        context.read<WishlistProvider>().toggle(widget.product.slug, wishlistItem);
                       },
                       child: Container(
                         width: 48,

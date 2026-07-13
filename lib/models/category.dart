@@ -21,8 +21,8 @@ class Category {
       slug: json['slug'] ?? '',
       icon: json['icon'] ?? '',
       color: json['color'] ?? '',
-      sortOrder: json['sortOrder'] ?? 0,
-      isActive: json['isActive'] ?? true,
+      sortOrder: json['sortOrder'] ?? json['sort_order'] ?? 0,
+      isActive: json['isActive'] ?? json['is_active'] ?? true,
     );
   }
 

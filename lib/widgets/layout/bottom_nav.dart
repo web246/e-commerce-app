@@ -1,7 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../../providers/cart_provider.dart';
+
+import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
+
+/// NOTE: This widget may be deprecated once main_shell.dart (which uses
+/// a BottomNavigationBar inside a StatefulShellRoute) is fully integrated.
+/// Keep this file for fallback / non-shell routes until migration is complete.
 
 enum BottomNavTab { home, categories, cart, orders, profile }
 
@@ -44,13 +49,21 @@ class _BottomNavState extends State<BottomNav> {
   @override
   Widget build(BuildContext context) {
     final cartProvider = context.watch<CartProvider>();
+    final theme = Theme.of(context);
 
     return Container(
       decoration: BoxDecoration(
-        color: Theme.of(context).scaffoldBackgroundColor,
+        color: theme.scaffoldBackgroundColor,
         border: Border(
-          top: BorderSide(color: Theme.of(context).dividerColor),
+          top: BorderSide(color: theme.dividerColor.withValues(alpha:0.5)),
         ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha:0.06),
+            blurRadius: 12,
+            offset: const Offset(0, -2),
+          ),
+        ],
       ),
       child: Stack(
         children: [
@@ -61,9 +74,9 @@ class _BottomNavState extends State<BottomNav> {
             left: _indicatorOffset.dx,
             child: Container(
               width: 60,
-              height: 4,
+              height: 3,
               decoration: BoxDecoration(
-                color: AppTheme.primary,
+                color: theme.colorScheme.primary,
                 borderRadius: BorderRadius.circular(2),
               ),
             ),
@@ -127,6 +140,10 @@ class _BottomNavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final activeColor = theme.colorScheme.primary;
+    final inactiveColor = theme.colorScheme.onSurface.withValues(alpha:0.45);
+
     return Expanded(
       child: GestureDetector(
         onTap: onTap,
@@ -140,7 +157,7 @@ class _BottomNavItem extends StatelessWidget {
                 children: [
                   Icon(
                     icon,
-                    color: isActive ? AppTheme.primary : AppTheme.mutedForeground,
+                    color: isActive ? activeColor : inactiveColor,
                     size: 24,
                   ),
                   if (badge != null && badge! > 0)
@@ -167,9 +184,10 @@ class _BottomNavItem extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 label,
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: isActive ? AppTheme.primary : AppTheme.mutedForeground,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: isActive ? activeColor : inactiveColor,
                   fontSize: 10,
+                  fontWeight: isActive ? FontWeight.w600 : FontWeight.w400,
                 ),
               ),
             ],

@@ -3,6 +3,7 @@ enum ProductStatus { active, inactive, outOfStock, pendingReview }
 enum ProductCondition { newCondition, used, refurbished }
 
 class Product {
+  final String? id;
   final String name;
   final String slug;
   final String description;
@@ -39,6 +40,7 @@ class Product {
   final ProductCondition condition;
 
   Product({
+    this.id,
     required this.name,
     required this.slug,
     required this.description,
@@ -77,45 +79,47 @@ class Product {
 
   factory Product.fromJson(Map<String, dynamic> json) {
     return Product(
+      id: json['id'] ?? '',
       name: json['name'] ?? '',
       slug: json['slug'] ?? '',
       description: json['description'] ?? '',
-      storeId: json['storeId'] ?? '',
-      storeName: json['storeName'] ?? '',
+      storeId: json['storeId'] ?? json['store_id'] ?? '',
+      storeName: json['storeName'] ?? json['store_name'] ?? '',
       category: json['category'] ?? '',
       subcategory: json['subcategory'] ?? '',
       brand: json['brand'] ?? '',
       price: (json['price'] as num?)?.toDouble() ?? 0.0,
-      oldPrice: (json['oldPrice'] as num?)?.toDouble(),
-      discountPercent: json['discountPercent'] ?? 0,
+      oldPrice: (json['oldPrice'] ?? json['old_price'])?.toDouble(),
+      discountPercent: json['discountPercent'] ?? json['discount_percent'] ?? 0,
       currency: json['currency'] ?? 'KES',
       images: List<String>.from(json['images'] ?? []),
       thumbnail: json['thumbnail'] ?? '',
       stock: json['stock'] ?? 0,
       sku: json['sku'] ?? '',
       rating: (json['rating'] as num?)?.toDouble() ?? 0.0,
-      reviewsCount: json['reviewsCount'] ?? 0,
-      soldCount: json['soldCount'] ?? 0,
+      reviewsCount: json['reviewsCount'] ?? json['reviews_count'] ?? 0,
+      soldCount: json['soldCount'] ?? json['sold_count'] ?? 0,
       status: _statusFromString(json['status'] as String?),
-      isFeatured: json['isFeatured'] ?? false,
-      isFlashSale: json['isFlashSale'] ?? false,
-      flashSaleEnd: json['flashSaleEnd'] != null ? DateTime.tryParse(json['flashSaleEnd']) : null,
-      flashSaleStock: json['flashSaleStock'] ?? 0,
-      freeShipping: json['freeShipping'] ?? false,
-      shippingFee: (json['shippingFee'] as num?)?.toDouble() ?? 0.0,
+      isFeatured: json['isFeatured'] ?? json['is_featured'] ?? false,
+      isFlashSale: json['isFlashSale'] ?? json['is_flash_sale'] ?? false,
+      flashSaleEnd: DateTime.tryParse(json['flashSaleEnd'] ?? json['flash_sale_end']),
+      flashSaleStock: json['flashSaleStock'] ?? json['flash_sale_stock'] ?? 0,
+      freeShipping: json['freeShipping'] ?? json['free_shipping'] ?? false,
+      shippingFee: (json['shippingFee'] ?? json['shipping_fee'])?.toDouble() ?? 0.0,
       tags: List<String>.from(json['tags'] ?? []),
       specifications: Map<String, dynamic>.from(json['specifications'] ?? {}),
       variants: List<dynamic>.from(json['variants'] ?? []),
       weight: (json['weight'] as num?)?.toDouble() ?? 0.0,
       dimensions: json['dimensions'] ?? '',
-      isNewArrival: json['isNewArrival'] ?? false,
-      isBestSeller: json['isBestSeller'] ?? false,
+      isNewArrival: json['isNewArrival'] ?? json['is_new_arrival'] ?? false,
+      isBestSeller: json['isBestSeller'] ?? json['is_best_seller'] ?? false,
       condition: _conditionFromString(json['condition'] as String?),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
+      'id': id,
       'name': name,
       'slug': slug,
       'description': description,

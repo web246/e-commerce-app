@@ -24,8 +24,8 @@ class User {
       email: json['email'] ?? '',
       phone: json['phone'] ?? '',
       role: json['role'] ?? 'customer',
-      isVerified: json['isVerified'] ?? false,
-      avatarUrl: json['avatarUrl'] ?? '',
+      isVerified: json['isVerified'] ?? json['is_verified'] ?? false,
+      avatarUrl: json['avatarUrl'] ?? json['avatar_url'] ?? '',
     );
   }
 

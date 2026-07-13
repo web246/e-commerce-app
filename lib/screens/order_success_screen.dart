@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+import '../models/order.dart';
 import '../theme/app_theme.dart';
 
 class OrderSuccessScreen extends StatefulWidget {
@@ -9,15 +11,18 @@ class OrderSuccessScreen extends StatefulWidget {
   State<OrderSuccessScreen> createState() => _OrderSuccessScreenState();
 }
 
-class _OrderSuccessScreenState extends State<OrderSuccessScreen> with TickerProviderStateMixin {
+class _OrderSuccessScreenState extends State<OrderSuccessScreen>
+    with TickerProviderStateMixin {
   late AnimationController _scaleController;
   late AnimationController _slideController;
 
   @override
   void initState() {
     super.initState();
-    _scaleController = AnimationController(duration: const Duration(milliseconds: 600), vsync: this);
-    _slideController = AnimationController(duration: const Duration(milliseconds: 800), vsync: this);
+    _scaleController = AnimationController(
+        duration: const Duration(milliseconds: 600), vsync: this);
+    _slideController = AnimationController(
+        duration: const Duration(milliseconds: 800), vsync: this);
 
     _scaleController.forward();
     _slideController.forward();
@@ -32,12 +37,21 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> with TickerProv
 
   @override
   Widget build(BuildContext context) {
-    final orderNumber = 'ORD-${DateTime.now().millisecondsSinceEpoch.toString().substring(0, 8).toUpperCase()}';
+    final order = GoRouterState.of(context).extra as Order?;
 
-    return WillPopScope(
-      onWillPop: () async {
-        context.go('/');
-        return false;
+    final displayOrderNumber =
+        order?.orderNumber ??
+        'ORD-${DateTime.now().millisecondsSinceEpoch.toString().substring(0, 8).toUpperCase()}';
+    final itemCount = order?.items.length ?? 0;
+    final totalAmount = order?.total ?? 0;
+    final estimatedDelivery = order?.estimatedDelivery;
+
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) {
+          context.go('/');
+        }
       },
       child: Scaffold(
         body: Center(
@@ -50,7 +64,8 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> with TickerProv
                   // Checkmark Circle
                   ScaleTransition(
                     scale: Tween<double>(begin: 0, end: 1).animate(
-                      CurvedAnimation(parent: _scaleController, curve: Curves.elasticOut),
+                      CurvedAnimation(
+                          parent: _scaleController, curve: Curves.elasticOut),
                     ),
                     child: Container(
                       width: 100,
@@ -60,47 +75,86 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> with TickerProv
                         shape: BoxShape.circle,
                       ),
                       child: const Center(
-                        child: Icon(Icons.check_circle, color: Colors.green, size: 80),
+                        child: Icon(Icons.check_circle,
+                            color: Colors.green, size: 80),
                       ),
                     ),
                   ),
                   const SizedBox(height: 24),
                   // Title
                   SlideTransition(
-                    position: Tween<Offset>(begin: const Offset(0, 0.3), end: Offset.zero).animate(
-                      CurvedAnimation(parent: _slideController, curve: Curves.easeOut),
-                    ),
+                    position: Tween<Offset>(
+                            begin: const Offset(0, 0.3), end: Offset.zero)
+                        .animate(CurvedAnimation(
+                            parent: _slideController, curve: Curves.easeOut)),
                     child: Text(
                       'Order Placed!',
-                      style: Theme.of(context).textTheme.displaySmall?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: Colors.green,
-                      ),
+                      style: Theme.of(context)
+                          .textTheme
+                          .displaySmall
+                          ?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: Colors.green,
+                          ),
                     ),
                   ),
                   const SizedBox(height: 16),
                   // Order Number
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 12),
                     decoration: BoxDecoration(
                       color: AppTheme.primary.withOpacity(0.1),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
-                      'Order #$orderNumber',
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.primary,
-                      ),
+                      'Order #$displayOrderNumber',
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleLarge
+                          ?.copyWith(
+                            fontWeight: FontWeight.bold,
+                            color: AppTheme.primary,
+                          ),
                     ),
                   ),
                   const SizedBox(height: 16),
+                  // Order Details
+                  if (order != null)
+                    Container(
+                      padding: const EdgeInsets.all(16),
+                      decoration: BoxDecoration(
+                        color: AppTheme.secondary,
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Column(
+                        children: [
+                          _DetailRow(
+                              label: 'Items',
+                              value: '$itemCount item${itemCount == 1 ? '' : 's'}'),
+                          const SizedBox(height: 8),
+                          _DetailRow(
+                              label: 'Total',
+                              value: 'KES ${totalAmount.toStringAsFixed(0)}'),
+                          if (estimatedDelivery != null) ...[
+                            const SizedBox(height: 8),
+                            _DetailRow(
+                              label: 'Est. Delivery',
+                              value: DateFormat('MMM d, yyyy')
+                                  .format(estimatedDelivery),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
                   // Message
+                  const SizedBox(height: 16),
                   Text(
                     'Thank you for your purchase. Your order is being processed.',
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: AppTheme.mutedForeground,
-                    ),
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyMedium
+                        ?.copyWith(color: AppTheme.mutedForeground),
                     textAlign: TextAlign.center,
                   ),
                   const SizedBox(height: 24),
@@ -159,7 +213,7 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> with TickerProv
                     height: 56,
                     child: ElevatedButton(
                       onPressed: () => context.go('/orders'),
-                      child: const Text('Track Order'),
+                      child: const Text('View Orders'),
                     ),
                   ),
                   const SizedBox(height: 12),
@@ -168,7 +222,7 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> with TickerProv
                     height: 56,
                     child: OutlinedButton(
                       onPressed: () => context.go('/'),
-                      child: const Text('Back to Home'),
+                      child: const Text('Continue Shopping'),
                     ),
                   ),
                   const SizedBox(height: 24),
@@ -177,16 +231,20 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> with TickerProv
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: Colors.blue.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
                       children: [
-                        const Icon(Icons.info_outline, color: Colors.blue, size: 20),
+                        const Icon(Icons.info_outline,
+                            color: Colors.blue, size: 20),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
                             'You will receive email and SMS updates about your order',
-                            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.blue),
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(color: Colors.blue),
                           ),
                         ),
                       ],
@@ -198,6 +256,32 @@ class _OrderSuccessScreenState extends State<OrderSuccessScreen> with TickerProv
           ),
         ),
       ),
+    );
+  }
+}
+
+class _DetailRow extends StatelessWidget {
+  final String label;
+  final String value;
+
+  const _DetailRow({required this.label, required this.value});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+      children: [
+        Text(label,
+            style: Theme.of(context)
+                .textTheme
+                .bodyMedium
+                ?.copyWith(color: AppTheme.mutedForeground)),
+        Text(value,
+            style: Theme.of(context)
+                .textTheme
+                .bodyMedium
+                ?.copyWith(fontWeight: FontWeight.bold)),
+      ],
     );
   }
 }
@@ -232,15 +316,17 @@ class _ProgressStep extends StatelessWidget {
               Text(
                 title,
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                  color: isActive ? Colors.green : AppTheme.mutedForeground,
-                  fontWeight: FontWeight.bold,
-                ),
+                      color:
+                          isActive ? Colors.green : AppTheme.mutedForeground,
+                      fontWeight: FontWeight.bold,
+                    ),
               ),
               Text(
                 subtitle,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: isActive ? Colors.green : AppTheme.mutedForeground,
-                ),
+                      color:
+                          isActive ? Colors.green : AppTheme.mutedForeground,
+                    ),
               ),
             ],
           ),
@@ -254,7 +340,10 @@ class _ProgressStep extends StatelessWidget {
             ),
             child: const Text(
               'Current',
-              style: TextStyle(color: Colors.green, fontSize: 12, fontWeight: FontWeight.bold),
+              style: TextStyle(
+                  color: Colors.green,
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold),
             ),
           ),
       ],

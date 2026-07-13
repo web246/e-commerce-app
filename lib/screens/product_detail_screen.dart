@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
+
 import '../models/cart_item.dart';
 import '../models/product.dart';
 import '../providers/cart_provider.dart';
+import '../services/product_repository.dart';
 import '../theme/app_theme.dart';
 
 class ProductDetailScreen extends StatefulWidget {
@@ -15,45 +17,36 @@ class ProductDetailScreen extends StatefulWidget {
   State<ProductDetailScreen> createState() => _ProductDetailScreenState();
 }
 
-class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTickerProviderStateMixin {
+class _ProductDetailScreenState extends State<ProductDetailScreen>
+    with SingleTickerProviderStateMixin {
   int _quantity = 1;
   bool _addedToCart = false;
   late AnimationController _controller;
-
-  final product = Product(
-    name: 'Premium Wireless Headphones',
-    slug: 'premium-wireless-headphones',
-    description: 'Experience superior sound quality with our premium wireless headphones. Featuring active noise cancellation, 30-hour battery life, and premium comfort design.',
-    storeId: 'store-1',
-    storeName: 'Electronics Pro',
-    category: 'Electronics',
-    subcategory: 'Audio',
-    brand: 'AudioMax',
-    price: 45000,
-    oldPrice: 60000,
-    currency: 'KES',
-    images: [],
-    thumbnail: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500',
-    sku: 'AUDIO-MAX-001',
-    rating: 4.8,
-    reviewsCount: 1250,
-    soldCount: 3500,
-    status: ProductStatus.active,
-    isFeatured: true,
-    freeShipping: true,
-    isBestSeller: true,
-    specifications: {
-      'Driver Size': '40mm',
-      'Frequency Response': '20Hz - 20kHz',
-      'Impedance': '32 Ohm',
-      'Weight': '250g',
-    },
-  );
+  Product? _product;
+  bool _isLoading = true;
+  bool _notFound = false;
 
   @override
   void initState() {
     super.initState();
-    _controller = AnimationController(duration: const Duration(milliseconds: 600), vsync: this);
+    _controller = AnimationController(
+        duration: const Duration(milliseconds: 600), vsync: this);
+    _loadProduct();
+  }
+
+  void _loadProduct() {
+    final loaded = ProductRepository.getById(widget.productId);
+    if (loaded != null) {
+      setState(() {
+        _product = loaded;
+        _isLoading = false;
+      });
+    } else {
+      setState(() {
+        _notFound = true;
+        _isLoading = false;
+      });
+    }
   }
 
   @override
@@ -63,9 +56,10 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
   }
 
   void _addToCart() {
+    if (_product == null) return;
     final cartItem = CartItem(
-      key: product.sku,
-      product: product,
+      key: _product!.sku,
+      product: _product!,
       quantity: _quantity,
     );
     context.read<CartProvider>().addItem(cartItem);
@@ -79,8 +73,62 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
 
   @override
   Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => context.pop(),
+          ),
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_notFound || _product == null) {
+      return Scaffold(
+        appBar: AppBar(
+          leading: IconButton(
+            icon: const Icon(Icons.arrow_back),
+            onPressed: () => context.pop(),
+          ),
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline,
+                  size: 64, color: AppTheme.mutedForeground),
+              const SizedBox(height: 16),
+              Text(
+                'Product not found',
+                style: Theme.of(context).textTheme.headlineSmall,
+              ),
+              const SizedBox(height: 8),
+              const Text(
+                'The product you are looking for does not exist.',
+                style:
+                    TextStyle(color: AppTheme.mutedForeground),
+              ),
+              const SizedBox(height: 24),
+              ElevatedButton(
+                onPressed: () => context.pop(),
+                child: const Text('Go Back'),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    final product = _product!;
     final isMobile = MediaQuery.of(context).size.width < 768;
-    final discount = ((product.oldPrice! - product.price) / product.oldPrice! * 100).toInt();
+    final hasDiscount =
+        product.oldPrice != null && product.oldPrice! > product.price;
+    final discount = hasDiscount
+        ? ((product.oldPrice! - product.price) / product.oldPrice! * 100)
+            .toInt()
+        : 0;
 
     return Scaffold(
       appBar: AppBar(
@@ -102,7 +150,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                 child: Image.network(
                   product.thumbnail,
                   fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) => const Icon(Icons.image, size: 64),
+                  errorBuilder: (_, __, ___) =>
+                      const Icon(Icons.image, size: 64),
                 ),
               ),
             ),
@@ -114,25 +163,68 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                   // Store
                   Row(
                     children: [
-                      Text(product.storeName, style: Theme.of(context).textTheme.titleLarge?.copyWith(color: AppTheme.primary), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      Text(
+                        product.storeName,
+                        style: Theme.of(context)
+                            .textTheme
+                            .titleLarge
+                            ?.copyWith(color: AppTheme.primary),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
                       const SizedBox(width: 8),
                       const Icon(Icons.verified, color: Colors.blue, size: 16),
                     ],
                   ),
                   const SizedBox(height: 12),
                   // Title
-                  Text(product.name, style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold), maxLines: 2, overflow: TextOverflow.ellipsis),
+                  Text(
+                    product.name,
+                    style: Theme.of(context)
+                        .textTheme
+                        .displaySmall
+                        ?.copyWith(fontWeight: FontWeight.bold),
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                   const SizedBox(height: 12),
                   // Rating
                   Row(
                     children: [
-                      ...List.generate(5, (i) => Icon(Icons.star, color: i < 4 ? Colors.amber : Colors.grey.withOpacity(0.3), size: 18)),
+                      ...List.generate(
+                        5,
+                        (i) => Icon(
+                          Icons.star,
+                          color: i < 4
+                              ? Colors.amber
+                              : Colors.grey.withOpacity(0.3),
+                          size: 18,
+                        ),
+                      ),
                       const SizedBox(width: 8),
-                      Text('${product.rating}', style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
+                      Text(
+                        '${product.rating}',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodyMedium
+                            ?.copyWith(fontWeight: FontWeight.bold),
+                      ),
                       const SizedBox(width: 4),
-                      Text('(${product.reviewsCount} reviews)', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.mutedForeground)),
+                      Text(
+                        '(${product.reviewsCount} reviews)',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: AppTheme.mutedForeground),
+                      ),
                       const SizedBox(width: 12),
-                      Text('${product.soldCount} sold', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.mutedForeground)),
+                      Text(
+                        '${product.soldCount} sold',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: AppTheme.mutedForeground),
+                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -150,30 +242,48 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                           children: [
                             Text(
                               'KES ${product.price.toStringAsFixed(0)}',
-                              style: Theme.of(context).textTheme.displaySmall?.copyWith(fontWeight: FontWeight.bold, color: AppTheme.primary),
+                              style: Theme.of(context)
+                                  .textTheme
+                                  .displaySmall
+                                  ?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.primary),
                             ),
-                            const SizedBox(width: 12),
-                            Text(
-                              'KES ${product.oldPrice!.toStringAsFixed(0)}',
-                              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                decoration: TextDecoration.lineThrough,
-                                color: AppTheme.mutedForeground,
+                            if (hasDiscount) ...[
+                              const SizedBox(width: 12),
+                              Text(
+                                'KES ${product.oldPrice!.toStringAsFixed(0)}',
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleLarge
+                                    ?.copyWith(
+                                      decoration:
+                                          TextDecoration.lineThrough,
+                                      color: AppTheme.mutedForeground,
+                                    ),
                               ),
-                            ),
+                            ],
                           ],
                         ),
-                        const SizedBox(height: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(
-                            color: AppTheme.destructive.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(4),
+                        if (hasDiscount) ...[
+                          const SizedBox(height: 8),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 4),
+                            decoration: BoxDecoration(
+                              color: AppTheme.destructive.withOpacity(0.2),
+                              borderRadius: BorderRadius.circular(4),
+                            ),
+                            child: Text(
+                              'Save $discount%',
+                              style: const TextStyle(
+                                color: AppTheme.destructive,
+                                fontWeight: FontWeight.bold,
+                                fontSize: 12,
+                              ),
+                            ),
                           ),
-                          child: Text(
-                            'Save $discount%',
-                            style: const TextStyle(color: AppTheme.destructive, fontWeight: FontWeight.bold, fontSize: 12),
-                          ),
-                        ),
+                        ],
                       ],
                     ),
                   ),
@@ -181,7 +291,8 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                   // Free Shipping Badge
                   if (product.freeShipping)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 12, vertical: 8),
                       decoration: BoxDecoration(
                         color: Colors.green.withOpacity(0.1),
                         borderRadius: BorderRadius.circular(8),
@@ -189,9 +300,18 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
-                          const Icon(Icons.local_shipping, color: Colors.green, size: 18),
+                          const Icon(Icons.local_shipping,
+                              color: Colors.green, size: 18),
                           const SizedBox(width: 8),
-                          Text('Free Shipping', style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.green, fontWeight: FontWeight.bold)),
+                          Text(
+                            'Free Shipping',
+                            style: Theme.of(context)
+                                .textTheme
+                                .bodySmall
+                                ?.copyWith(
+                                    color: Colors.green,
+                                    fontWeight: FontWeight.bold),
+                          ),
                         ],
                       ),
                     ),
@@ -210,7 +330,9 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                           children: [
                             IconButton(
                               icon: const Icon(Icons.remove),
-                              onPressed: _quantity > 1 ? () => setState(() => _quantity--) : null,
+                              onPressed: _quantity > 1
+                                  ? () => setState(() => _quantity--)
+                                  : null,
                             ),
                             SizedBox(
                               width: 40,
@@ -230,9 +352,13 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceAround,
                     children: [
-                      _TrustBadge(icon: Icons.lock, label: 'Secure Payment'),
-                      _TrustBadge(icon: Icons.timer, label: 'Fast Delivery'),
-                      _TrustBadge(icon: Icons.assignment_return, label: 'Easy Returns'),
+                      _TrustBadge(
+                          icon: Icons.lock, label: 'Secure Payment'),
+                      _TrustBadge(
+                          icon: Icons.timer, label: 'Fast Delivery'),
+                      _TrustBadge(
+                          icon: Icons.assignment_return,
+                          label: 'Easy Returns'),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -243,10 +369,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                         Expanded(
                           child: ElevatedButton.icon(
                             icon: const Icon(Icons.shopping_cart),
-                            label: _addedToCart ? const Text('Added to Cart ✓') : const Text('Add to Cart'),
+                            label: _addedToCart
+                                ? const Text('Added to Cart \u{2713}')
+                                : const Text('Add to Cart'),
                             onPressed: _addToCart,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: _addedToCart ? Colors.green : AppTheme.primary,
+                              backgroundColor: _addedToCart
+                                  ? Colors.green
+                                  : AppTheme.primary,
                             ),
                           ),
                         ),
@@ -270,10 +400,14 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                           height: 56,
                           child: ElevatedButton.icon(
                             icon: const Icon(Icons.shopping_cart),
-                            label: _addedToCart ? const Text('Added to Cart ✓') : const Text('Add to Cart'),
+                            label: _addedToCart
+                                ? const Text('Added to Cart \u{2713}')
+                                : const Text('Add to Cart'),
                             onPressed: _addToCart,
                             style: ElevatedButton.styleFrom(
-                              backgroundColor: _addedToCart ? Colors.green : AppTheme.primary,
+                              backgroundColor: _addedToCart
+                                  ? Colors.green
+                                  : AppTheme.primary,
                             ),
                           ),
                         ),
@@ -293,23 +427,47 @@ class _ProductDetailScreenState extends State<ProductDetailScreen> with SingleTi
                     ),
                   const SizedBox(height: 16),
                   // Specifications
-                  Text('Specifications', style: Theme.of(context).textTheme.headlineSmall),
-                  const SizedBox(height: 12),
-                  ...product.specifications.entries.map((e) => Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(child: Text(e.key, style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.mutedForeground))),
-                        Text(e.value.toString(), style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold)),
-                      ],
-                    ),
-                  )),
-                  const SizedBox(height: 16),
+                  if (product.specifications.isNotEmpty) ...[
+                    Text('Specifications',
+                        style:
+                            Theme.of(context).textTheme.headlineSmall),
+                    const SizedBox(height: 12),
+                    ...product.specifications.entries.map((e) => Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: Row(
+                            mainAxisAlignment:
+                                MainAxisAlignment.spaceBetween,
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  e.key,
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .bodyMedium
+                                      ?.copyWith(
+                                          color:
+                                              AppTheme.mutedForeground),
+                                ),
+                              ),
+                              Text(
+                                e.value.toString(),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodyMedium
+                                    ?.copyWith(
+                                        fontWeight: FontWeight.bold),
+                              ),
+                            ],
+                          ),
+                        )),
+                    const SizedBox(height: 16),
+                  ],
                   // Description
-                  Text('Description', style: Theme.of(context).textTheme.headlineSmall),
+                  Text('Description',
+                      style: Theme.of(context).textTheme.headlineSmall),
                   const SizedBox(height: 8),
-                  Text(product.description, style: Theme.of(context).textTheme.bodyMedium),
+                  Text(product.description,
+                      style: Theme.of(context).textTheme.bodyMedium),
                 ],
               ),
             ),
@@ -333,7 +491,9 @@ class _TrustBadge extends StatelessWidget {
       children: [
         Icon(icon, color: AppTheme.primary, size: 24),
         const SizedBox(height: 4),
-        Text(label, style: Theme.of(context).textTheme.bodySmall, textAlign: TextAlign.center),
+        Text(label,
+            style: Theme.of(context).textTheme.bodySmall,
+            textAlign: TextAlign.center),
       ],
     );
   }

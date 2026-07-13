@@ -1,4 +1,4 @@
-package com.example.dennis_mendez_app
+package com.vendi.app
 
 import io.flutter.embedding.android.FlutterActivity
 

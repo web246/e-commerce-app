@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import '../../providers/auth_provider.dart';
+
+import '../../providers/providers.dart';
 import '../../theme/app_theme.dart';
 
 class LoginScreen extends StatefulWidget {
@@ -14,20 +15,49 @@ class LoginScreen extends StatefulWidget {
 class _LoginScreenState extends State<LoginScreen> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
+  final _emailFocusNode = FocusNode();
+  bool _isLoading = false;
   String? _errorMessage;
+  String? _emailError;
+
+  final _emailRegex = RegExp(r'^[^@]+@[^@]+\.[^@]+$');
+
+  @override
+  void initState() {
+    super.initState();
+    _emailFocusNode.addListener(() {
+      if (!_emailFocusNode.hasFocus) _validateEmail();
+    });
+  }
 
   @override
   void dispose() {
     _emailController.dispose();
     _passwordController.dispose();
+    _emailFocusNode.dispose();
     super.dispose();
   }
 
+  void _validateEmail() {
+    final email = _emailController.text.trim();
+    if (email.isNotEmpty && !_emailRegex.hasMatch(email)) {
+      setState(() { _emailError = 'Please enter a valid email address'; });
+    } else {
+      setState(() { _emailError = null; });
+    }
+  }
+
   void _handleLogin() async {
-    setState(() => _errorMessage = null);
+    setState(() {
+      _errorMessage = null;
+      _isLoading = true;
+    });
 
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
-      setState(() => _errorMessage = 'Please fill in all fields');
+      setState(() {
+        _errorMessage = 'Please fill in all fields';
+        _isLoading = false;
+      });
       return;
     }
 
@@ -37,7 +67,10 @@ class _LoginScreenState extends State<LoginScreen> {
       if (!mounted) return;
       context.go('/');
     } catch (e) {
-      setState(() => _errorMessage = 'Login failed: ${e.toString()}');
+      setState(() {
+        _isLoading = false;
+        _errorMessage = 'Login failed: ${e.toString()}';
+      });
     }
   }
 
@@ -108,11 +141,16 @@ class _LoginScreenState extends State<LoginScreen> {
                       ],
                       TextField(
                         controller: _emailController,
+                        focusNode: _emailFocusNode,
                         decoration: InputDecoration(
                           hintText: 'Email address',
                           prefixIcon: const Icon(Icons.email_outlined),
                           border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+                          errorText: _emailError,
                         ),
+                        onChanged: (_) {
+                          if (_emailError != null) setState(() { _emailError = null; });
+                        },
                       ),
                       const SizedBox(height: 16),
                       TextField(
@@ -135,12 +173,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       const SizedBox(height: 16),
                       Consumer<AuthProvider>(
                         builder: (context, authProvider, child) {
+                          final loading = _isLoading || authProvider.isLoadingAuth;
                           return SizedBox(
                             width: double.infinity,
                             height: 56,
                             child: ElevatedButton(
-                              onPressed: authProvider.isLoadingAuth ? null : _handleLogin,
-                              child: authProvider.isLoadingAuth
+                              onPressed: loading ? null : _handleLogin,
+                              child: loading
                                   ? const SizedBox(
                                       height: 24,
                                       width: 24,

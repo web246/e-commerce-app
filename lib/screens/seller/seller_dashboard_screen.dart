@@ -1,9 +1,148 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../config/constants.dart';
 import '../../theme/app_theme.dart';
 
-class SellerDashboardScreen extends StatelessWidget {
+class SellerDashboardScreen extends StatefulWidget {
   const SellerDashboardScreen({super.key});
+
+  @override
+  State<SellerDashboardScreen> createState() => _SellerDashboardScreenState();
+}
+
+class _SellerDashboardScreenState extends State<SellerDashboardScreen> {
+  String _storeName = '';
+  String _storeStatus = 'pending';
+  String _totalSales = 'KES 0';
+  String _orderCount = '0';
+  String _rating = '0.0';
+  String _productCount = '0';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSellerData();
+  }
+
+  Future<void> _loadSellerData() async {
+    final prefs = await SharedPreferences.getInstance();
+    final appJson = prefs.getString(AppConstants.prefsSellerApplication);
+    if (appJson != null) {
+      final data = jsonDecode(appJson) as Map<String, dynamic>;
+      setState(() {
+        _storeName = data['businessName']?.toString() ?? '';
+        _storeStatus = data['status']?.toString() ?? 'pending';
+      });
+    }
+    setState(() {
+      _totalSales = prefs.getString(AppConstants.prefsSellerTotalSales) ?? 'KES 0';
+      _orderCount = prefs.getString(AppConstants.prefsSellerOrderCount) ?? '0';
+      _rating = prefs.getString(AppConstants.prefsSellerRating) ?? '0.0';
+      _productCount = prefs.getString(AppConstants.prefsSellerProductCount) ?? '0';
+    });
+  }
+
+  void _showAddProductDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Add Product'),
+        content: const Text(
+          'Coming soon — you\'ll be able to add products from the seller portal.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showAnalyticsDialog() {
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Analytics'),
+        content: const Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text('Store Analytics',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+            SizedBox(height: 12),
+            Text('Total Views: 0'),
+            Text('Conversion Rate: 0%'),
+            Text('Average Order Value: KES 0'),
+            Text('Top Product: N/A'),
+            SizedBox(height: 12),
+            Text('Detailed analytics will be available soon.'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('OK'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showStoreSettingsDialog() {
+    final nameController = TextEditingController(text: _storeName);
+    final descController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Store Settings'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextField(
+              controller: nameController,
+              decoration: const InputDecoration(labelText: 'Store Name'),
+            ),
+            const SizedBox(height: 12),
+            TextField(
+              controller: descController,
+              decoration: const InputDecoration(
+                  labelText: 'Store Description'),
+              maxLines: 3,
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () async {
+              final prefs = await SharedPreferences.getInstance();
+              await prefs.setString(
+                  AppConstants.prefsStoreName, nameController.text);
+              if (ctx.mounted) Navigator.pop(ctx);
+              if (context.mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content:
+                          Text('Store settings saved.')),
+                );
+              }
+              _loadSellerData();
+            },
+            child: const Text('Save'),
+          ),
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -13,11 +152,28 @@ class SellerDashboardScreen extends StatelessWidget {
           icon: const Icon(Icons.arrow_back),
           onPressed: () => context.pop(),
         ),
-        title: const Text('Seller Dashboard'),
+        title: Text(
+            _storeName.isNotEmpty ? _storeName : 'Seller Dashboard'),
         actions: [
           IconButton(
             icon: const Icon(Icons.notifications),
-            onPressed: () {},
+            onPressed: () {
+              showDialog(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Notifications'),
+                  content:
+                      const Text('No new notifications.'),
+                  actions: [
+                    TextButton(
+                      onPressed: () =>
+                          Navigator.pop(ctx),
+                      child: const Text('OK'),
+                    ),
+                  ],
+                ),
+              );
+            },
           ),
         ],
       ),
@@ -27,13 +183,50 @@ class SellerDashboardScreen extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Status Banner
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: _storeStatus == 'approved'
+                      ? Colors.green.withOpacity(0.1)
+                      : Colors.orange.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      _storeStatus == 'approved'
+                          ? Icons.check_circle
+                          : Icons.hourglass_empty,
+                      color: _storeStatus == 'approved'
+                          ? Colors.green
+                          : Colors.orange,
+                    ),
+                    const SizedBox(width: 8),
+                    Text(
+                      _storeStatus == 'approved'
+                          ? 'Your store is active'
+                          : _storeStatus == 'rejected'
+                              ? 'Application rejected'
+                              : 'Application pending review',
+                      style: TextStyle(
+                        color: _storeStatus == 'approved'
+                            ? Colors.green
+                            : Colors.orange,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 16),
               // Stats Row
               Row(
                 children: [
                   Expanded(
                     child: _StatCard(
                       label: 'Total Sales',
-                      value: 'KES 245,890',
+                      value: _totalSales,
                       icon: Icons.trending_up,
                       color: Colors.green,
                     ),
@@ -42,7 +235,7 @@ class SellerDashboardScreen extends StatelessWidget {
                   Expanded(
                     child: _StatCard(
                       label: 'Orders',
-                      value: '127',
+                      value: _orderCount,
                       icon: Icons.shopping_bag,
                       color: Colors.blue,
                     ),
@@ -55,7 +248,7 @@ class SellerDashboardScreen extends StatelessWidget {
                   Expanded(
                     child: _StatCard(
                       label: 'Ratings',
-                      value: '4.8',
+                      value: _rating,
                       icon: Icons.star,
                       color: Colors.amber,
                     ),
@@ -64,7 +257,7 @@ class SellerDashboardScreen extends StatelessWidget {
                   Expanded(
                     child: _StatCard(
                       label: 'Products',
-                      value: '45',
+                      value: _productCount,
                       icon: Icons.inventory,
                       color: Colors.purple,
                     ),
@@ -73,51 +266,47 @@ class SellerDashboardScreen extends StatelessWidget {
               ),
               const SizedBox(height: 24),
               // Quick Actions
-              Text('Quick Actions', style: Theme.of(context).textTheme.titleLarge),
+              Text('Quick Actions',
+                  style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 12),
               _ActionButton(
                 icon: Icons.add,
                 title: 'Add Product',
-                onTap: () {},
+                onTap: _showAddProductDialog,
               ),
               _ActionButton(
                 icon: Icons.visibility,
                 title: 'View Analytics',
-                onTap: () {},
+                onTap: _showAnalyticsDialog,
               ),
               _ActionButton(
                 icon: Icons.settings,
                 title: 'Store Settings',
-                onTap: () {},
+                onTap: _showStoreSettingsDialog,
               ),
               const SizedBox(height: 24),
               // Recent Orders
-              Text('Recent Orders', style: Theme.of(context).textTheme.titleLarge),
+              Text('Recent Orders',
+                  style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 12),
               Container(
-                padding: const EdgeInsets.all(12),
+                padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
                   border: Border.all(color: AppTheme.border),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Column(
-                  children: [
-                    _OrderRow(
-                      orderNumber: 'ORD-001',
-                      items: '3 items',
-                      total: 'KES 15,000',
-                      status: 'Pending',
-                      statusColor: Colors.orange,
-                    ),
-                    Divider(color: AppTheme.border),
-                    _OrderRow(
-                      orderNumber: 'ORD-002',
-                      items: '1 item',
-                      total: 'KES 5,000',
-                      status: 'Shipped',
-                      statusColor: Colors.blue,
-                    ),
-                  ],
+                child: Center(
+                  child: Column(
+                    children: [
+                      Icon(Icons.inbox,
+                          size: 48,
+                          color: AppTheme.mutedForeground),
+                      const SizedBox(height: 8),
+                      Text('No orders yet',
+                          style: TextStyle(
+                              color: AppTheme.mutedForeground)),
+                    ],
+                  ),
                 ),
               ),
             ],
@@ -154,8 +343,20 @@ class _StatCard extends StatelessWidget {
         children: [
           Icon(icon, color: color, size: 24),
           const SizedBox(height: 8),
-          Text(label, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.mutedForeground)),
-          Text(value, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
+          Text(
+            label,
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: AppTheme.mutedForeground),
+          ),
+          Text(
+            value,
+            style: Theme.of(context)
+                .textTheme
+                .titleLarge
+                ?.copyWith(fontWeight: FontWeight.bold),
+          ),
         ],
       ),
     );
@@ -188,64 +389,13 @@ class _ActionButton extends StatelessWidget {
           children: [
             Icon(icon, color: AppTheme.primary),
             const SizedBox(width: 12),
-            Text(title, style: Theme.of(context).textTheme.titleLarge),
+            Text(title,
+                style: Theme.of(context).textTheme.titleLarge),
             const Spacer(),
-            const Icon(Icons.arrow_forward, color: AppTheme.mutedForeground),
+            const Icon(Icons.arrow_forward,
+                color: AppTheme.mutedForeground),
           ],
         ),
-      ),
-    );
-  }
-}
-
-class _OrderRow extends StatelessWidget {
-  final String orderNumber;
-  final String items;
-  final String total;
-  final String status;
-  final Color statusColor;
-
-  const _OrderRow({
-    required this.orderNumber,
-    required this.items,
-    required this.total,
-    required this.status,
-    required this.statusColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 8),
-      child: Row(
-        children: [
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(orderNumber, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-                Text(items, style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.mutedForeground)),
-              ],
-            ),
-          ),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Text(total, style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)),
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                decoration: BoxDecoration(
-                  color: statusColor.withOpacity(0.2),
-                  borderRadius: BorderRadius.circular(4),
-                ),
-                child: Text(
-                  status,
-                  style: TextStyle(color: statusColor, fontSize: 12, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ],
-          ),
-        ],
       ),
     );
   }

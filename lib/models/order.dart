@@ -7,6 +7,7 @@ enum PaymentStatus { pending, paid, failed, refunded }
 enum DeliveryMethod { bodaExpress, standard, pickup }
 
 class Order {
+  final String? id;
   final String orderNumber;
   final String buyerId;
   final String buyerName;
@@ -34,6 +35,7 @@ class Order {
   final List<Map<String, dynamic>> timeline;
 
   Order({
+    this.id,
     required this.orderNumber,
     required this.buyerId,
     required this.buyerName,
@@ -63,14 +65,15 @@ class Order {
 
   factory Order.fromJson(Map<String, dynamic> json) {
     return Order(
-      orderNumber: json['orderNumber'] ?? '',
-      buyerId: json['buyerId'] ?? '',
-      buyerName: json['buyerName'] ?? '',
-      buyerEmail: json['buyerEmail'] ?? '',
-      buyerPhone: json['buyerPhone'] ?? '',
+      id: json['id'] ?? '',
+      orderNumber: json['orderNumber'] ?? json['order_number'] ?? '',
+      buyerId: json['buyerId'] ?? json['buyer_id'] ?? '',
+      buyerName: json['buyerName'] ?? json['buyer_name'] ?? '',
+      buyerEmail: json['buyerEmail'] ?? json['buyer_email'] ?? '',
+      buyerPhone: json['buyerPhone'] ?? json['buyer_phone'] ?? '',
       items: List<dynamic>.from(json['items'] ?? []),
       subtotal: (json['subtotal'] as num?)?.toDouble() ?? 0.0,
-      shippingFee: (json['shippingFee'] as num?)?.toDouble() ?? 0.0,
+      shippingFee: (json['shippingFee'] ?? json['shipping_fee'])?.toDouble() ?? 0.0,
       tax: (json['tax'] as num?)?.toDouble() ?? 0.0,
       discount: (json['discount'] as num?)?.toDouble() ?? 0.0,
       total: (json['total'] as num?)?.toDouble() ?? 0.0,
@@ -78,21 +81,22 @@ class Order {
       status: _statusFromString(json['status'] as String?),
       paymentMethod: _paymentMethodFromString(json['paymentMethod'] as String?),
       paymentStatus: _paymentStatusFromString(json['paymentStatus'] as String?),
-      paymentReference: json['paymentReference'] ?? '',
-      shippingAddress: Map<String, dynamic>.from(json['shippingAddress'] ?? {}),
+      paymentReference: json['paymentReference'] ?? json['payment_reference'] ?? '',
+      shippingAddress: Map<String, dynamic>.from(json['shippingAddress'] ?? json['shipping_address'] ?? {}),
       deliveryMethod: _deliveryMethodFromString(json['deliveryMethod'] as String?),
-      estimatedDelivery: json['estimatedDelivery'] != null ? DateTime.tryParse(json['estimatedDelivery']) : null,
-      trackingNumber: json['trackingNumber'] ?? '',
+      estimatedDelivery: DateTime.tryParse(json['estimatedDelivery'] ?? json['estimated_delivery']),
+      trackingNumber: json['trackingNumber'] ?? json['tracking_number'] ?? '',
       carrier: json['carrier'] ?? '',
-      couponCode: json['couponCode'] ?? '',
-      storeId: json['storeId'] ?? '',
-      storeName: json['storeName'] ?? '',
+      couponCode: json['couponCode'] ?? json['coupon_code'] ?? '',
+      storeId: json['storeId'] ?? json['store_id'] ?? '',
+      storeName: json['storeName'] ?? json['store_name'] ?? '',
       timeline: List<Map<String, dynamic>>.from(json['timeline'] ?? []),
     );
   }
 
   Map<String, dynamic> toJson() {
     return {
+      'id': id,
       'orderNumber': orderNumber,
       'buyerId': buyerId,
       'buyerName': buyerName,

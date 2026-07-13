@@ -1,11 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-import '../models/product.dart';
+
+import '../services/product_repository.dart';
 import '../theme/app_theme.dart';
-import '../widgets/common/product_card.dart';
-import '../widgets/common/section_header.dart';
-import '../widgets/layout/bottom_nav.dart';
-import '../widgets/layout/top_bar.dart';
+import '../widgets/widgets.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -15,111 +15,15 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _currentBottomTab = 0;
-
-  final List<Product> _sampleProducts = [
-    Product(
-      name: 'iPhone 15 Pro',
-      slug: 'iphone-15-pro',
-      description: 'Latest iPhone with A17 Pro chip',
-      storeId: 'store-1',
-      storeName: 'Apple Store',
-      category: 'Phones',
-      subcategory: 'Smartphones',
-      brand: 'Apple',
-      price: 120000,
-      oldPrice: 150000,
-      currency: 'KES',
-      images: [],
-      thumbnail: 'https://images.unsplash.com/photo-1556656793-08538906a9f8?w=500',
-      sku: 'IPHONE-15-PRO',
-      rating: 4.8,
-      reviewsCount: 1250,
-      soldCount: 3500,
-      status: ProductStatus.active,
-      isFeatured: true,
-      isFlashSale: true,
-      flashSaleEnd: DateTime.now().add(const Duration(hours: 6)),
-      freeShipping: true,
-      isNewArrival: false,
-      isBestSeller: true,
-    ),
-    Product(
-      name: 'Sony WH-1000XM5 Headphones',
-      slug: 'sony-wh1000xm5',
-      description: 'Premium noise-cancelling headphones',
-      storeId: 'store-2',
-      storeName: 'Electronics Hub',
-      category: 'Electronics',
-      subcategory: 'Audio',
-      brand: 'Sony',
-      price: 45000,
-      oldPrice: 55000,
-      currency: 'KES',
-      images: [],
-      thumbnail: 'https://images.unsplash.com/photo-1505740420928-5e560c06d30e?w=500',
-      sku: 'SONY-WH-1000XM5',
-      rating: 4.7,
-      reviewsCount: 890,
-      soldCount: 2100,
-      status: ProductStatus.active,
-      isFeatured: true,
-      isNewArrival: true,
-      freeShipping: true,
-    ),
-    Product(
-      name: 'Nike Air Max 90',
-      slug: 'nike-air-max-90',
-      description: 'Classic sneakers with excellent comfort',
-      storeId: 'store-3',
-      storeName: 'Fashion Store',
-      category: 'Shoes',
-      subcategory: 'Sneakers',
-      brand: 'Nike',
-      price: 12000,
-      oldPrice: 15000,
-      currency: 'KES',
-      images: [],
-      thumbnail: 'https://images.unsplash.com/photo-1542291026-7eec264c27ff?w=500',
-      sku: 'NIKE-AIR-MAX-90',
-      rating: 4.6,
-      reviewsCount: 2100,
-      soldCount: 8900,
-      status: ProductStatus.active,
-      isFeatured: true,
-      isBestSeller: true,
-      freeShipping: false,
-    ),
-    Product(
-      name: 'MacBook Pro 16"',
-      slug: 'macbook-pro-16',
-      description: 'Powerful laptop for professionals',
-      storeId: 'store-1',
-      storeName: 'Apple Store',
-      category: 'Computers',
-      subcategory: 'Laptops',
-      brand: 'Apple',
-      price: 280000,
-      oldPrice: 320000,
-      currency: 'KES',
-      images: [],
-      thumbnail: 'https://images.unsplash.com/photo-1517336714731-489689fd1ca8?w=500',
-      sku: 'MACBOOK-PRO-16',
-      rating: 4.9,
-      reviewsCount: 450,
-      soldCount: 950,
-      status: ProductStatus.active,
-      isFeatured: true,
-      freeShipping: true,
-    ),
-  ];
-
   @override
   Widget build(BuildContext context) {
     final width = MediaQuery.of(context).size.width;
-    final isMobile = width < 768;
     final gridCount = width < 600 ? 2 : width < 960 ? 3 : 4;
     final gridAspect = width < 600 ? 0.72 : width < 960 ? 0.74 : 0.80;
+
+    final flashSaleProducts = ProductRepository.getFlashSale();
+    final featuredProducts = ProductRepository.getFeatured();
+    final bestSellerProducts = ProductRepository.getBestSellers();
 
     return Scaffold(
       body: Column(
@@ -131,7 +35,8 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           Expanded(
             child: RefreshIndicator(
-              onRefresh: () async => await Future.delayed(const Duration(seconds: 1)),
+              onRefresh: () async =>
+                  await Future.delayed(const Duration(seconds: 1)),
               child: CustomScrollView(
                 slivers: [
                   SliverPadding(
@@ -145,85 +50,100 @@ class _HomeScreenState extends State<HomeScreen> {
                         _CategoryStrip(),
                         const SizedBox(height: 24),
                         // Flash Sale Section
-                        SectionHeader(
-                          title: 'Flash Sale',
-                          badge: '🔥 6h left',
-                          onViewAll: () => context.go('/search'),
-                        ),
-                        const SizedBox(height: 12),
-                        _FlashSaleCountdown(),
-                        const SizedBox(height: 12),
-                        SizedBox(
-                          height: 280,
-                          child: ListView.builder(
-                            scrollDirection: Axis.horizontal,
-                            itemCount: _sampleProducts.length,
-                            itemBuilder: (context, index) => Padding(
-                              padding: const EdgeInsets.only(right: 12),
-                              child: SizedBox(
-                                width: 160,
-                                child: ProductCard(
-                                  product: _sampleProducts[index],
-                                  onTap: () => context.go('/product/${_sampleProducts[index].slug}'),
+                        if (flashSaleProducts.isNotEmpty) ...[
+                          SectionHeader(
+                            title: 'Flash Sale',
+                            badge: '\u{1F525} 6h left',
+                            onViewAll: () => context.go('/search'),
+                          ),
+                          const SizedBox(height: 12),
+                          const _FlashSaleCountdown(),
+                          const SizedBox(height: 12),
+                          SizedBox(
+                            height: 280,
+                            child: ListView.builder(
+                              scrollDirection: Axis.horizontal,
+                              itemCount: flashSaleProducts.length,
+                              itemBuilder: (context, index) => Padding(
+                                padding: const EdgeInsets.only(right: 12),
+                                child: SizedBox(
+                                  width: 160,
+                                  child: ProductCard(
+                                    product: flashSaleProducts[index],
+                                    onTap: () => context.go(
+                                        '/product/${flashSaleProducts[index].slug}'),
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
-                        const SizedBox(height: 24),
+                          const SizedBox(height: 24),
+                        ],
                       ]),
                     ),
                   ),
                   // Trending Now
-                  SliverToBoxAdapter(
-                    child: SectionHeader(
-                      title: 'Trending Now',
-                      onViewAll: () => context.go('/search'),
-                    ),
-                  ),
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    sliver: SliverGrid(
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: gridCount,
-                        mainAxisSpacing: 16,
-                        crossAxisSpacing: 16,
-                        childAspectRatio: gridAspect,
+                  if (featuredProducts.isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: SectionHeader(
+                        title: 'Trending Now',
+                        onViewAll: () => context.go('/search'),
                       ),
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) => ProductCard(
-                          product: _sampleProducts[index % _sampleProducts.length],
-                          onTap: () => context.go('/product/${_sampleProducts[index % _sampleProducts.length].slug}'),
+                    ),
+                  if (featuredProducts.isNotEmpty)
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      sliver: SliverGrid(
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: gridCount,
+                          mainAxisSpacing: 16,
+                          crossAxisSpacing: 16,
+                          childAspectRatio: gridAspect,
                         ),
-                        childCount: 8,
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) => ProductCard(
+                            product: featuredProducts[index],
+                            onTap: () => context.go(
+                                '/product/${featuredProducts[index].slug}'),
+                          ),
+                          childCount: featuredProducts.length > 8
+                              ? 8
+                              : featuredProducts.length,
+                        ),
                       ),
                     ),
-                  ),
                   // Best Sellers
-                  SliverToBoxAdapter(
-                    child: SectionHeader(
-                      title: 'Best Sellers',
-                      onViewAll: () => context.go('/search'),
-                    ),
-                  ),
-                  SliverPadding(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                    sliver: SliverGrid(
-                      gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                        crossAxisCount: gridCount,
-                        mainAxisSpacing: 16,
-                        crossAxisSpacing: 16,
-                        childAspectRatio: gridAspect,
+                  if (bestSellerProducts.isNotEmpty)
+                    SliverToBoxAdapter(
+                      child: SectionHeader(
+                        title: 'Best Sellers',
+                        onViewAll: () => context.go('/search'),
                       ),
-                      delegate: SliverChildBuilderDelegate(
-                        (context, index) => ProductCard(
-                          product: _sampleProducts[index % _sampleProducts.length],
-                          onTap: () => context.go('/product/${_sampleProducts[index % _sampleProducts.length].slug}'),
+                    ),
+                  if (bestSellerProducts.isNotEmpty)
+                    SliverPadding(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 16, vertical: 12),
+                      sliver: SliverGrid(
+                        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          crossAxisCount: gridCount,
+                          mainAxisSpacing: 16,
+                          crossAxisSpacing: 16,
+                          childAspectRatio: gridAspect,
                         ),
-                        childCount: 8,
+                        delegate: SliverChildBuilderDelegate(
+                          (context, index) => ProductCard(
+                            product: bestSellerProducts[index],
+                            onTap: () => context.go(
+                                '/product/${bestSellerProducts[index].slug}'),
+                          ),
+                          childCount: bestSellerProducts.length > 8
+                              ? 8
+                              : bestSellerProducts.length,
+                        ),
                       ),
                     ),
-                  ),
                   SliverToBoxAdapter(child: const SizedBox(height: 32)),
                 ],
               ),
@@ -231,31 +151,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-      bottomNavigationBar: isMobile
-          ? BottomNav(
-              currentTab: BottomNavTab.values[_currentBottomTab],
-              onTabChanged: (tab) {
-                setState(() => _currentBottomTab = BottomNavTab.values.indexOf(tab));
-                switch (tab) {
-                  case BottomNavTab.home:
-                    context.go('/');
-                    break;
-                  case BottomNavTab.categories:
-                    context.go('/categories');
-                    break;
-                  case BottomNavTab.cart:
-                    context.go('/cart');
-                    break;
-                  case BottomNavTab.orders:
-                    context.go('/orders');
-                    break;
-                  case BottomNavTab.profile:
-                    context.go('/profile');
-                    break;
-                }
-              },
-            )
-          : null,
     );
   }
 }
@@ -324,12 +219,12 @@ class _HeroBannerState extends State<_HeroBanner> {
 
 class _CategoryStrip extends StatelessWidget {
   final categories = [
-    ('Electronics', '📱'),
-    ('Fashion', '👔'),
-    ('Phones', '📞'),
-    ('Computers', '💻'),
-    ('Furniture', '🛋️'),
-    ('Gaming', '🎮'),
+    ('Electronics', '\u{1F4F1}'),
+    ('Fashion', '\u{1F454}'),
+    ('Phones', '\u{1F4DE}'),
+    ('Computers', '\u{1F4BB}'),
+    ('Furniture', '\u{1F6CB}\u{FE0F}'),
+    ('Gaming', '\u{1F3AE}'),
   ];
 
   @override
@@ -351,15 +246,23 @@ class _CategoryStrip extends StatelessWidget {
                     width: 64,
                     height: 64,
                     decoration: BoxDecoration(
-                      color: AppTheme.categoryColors[name]?.withOpacity(0.15) ?? AppTheme.secondary,
+                      color: AppTheme.categoryColors[name]
+                              ?.withOpacity(0.15) ??
+                          AppTheme.secondary,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Center(
-                      child: Text(emoji, style: const TextStyle(fontSize: 28)),
+                      child:
+                          Text(emoji, style: const TextStyle(fontSize: 28)),
                     ),
                   ),
                   const SizedBox(height: 8),
-                  Text(name, style: Theme.of(context).textTheme.bodySmall, maxLines: 1, overflow: TextOverflow.ellipsis),
+                  Text(
+                    name,
+                    style: Theme.of(context).textTheme.bodySmall,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
                 ],
               ),
             ),
@@ -371,30 +274,51 @@ class _CategoryStrip extends StatelessWidget {
 }
 
 class _FlashSaleCountdown extends StatefulWidget {
+  const _FlashSaleCountdown();
+
   @override
   State<_FlashSaleCountdown> createState() => _FlashSaleCountdownState();
 }
 
 class _FlashSaleCountdownState extends State<_FlashSaleCountdown> {
-  late DateTime _endTime;
+  late Timer _countdownTimer;
+  Duration _remaining = const Duration(hours: 6, minutes: 45, seconds: 23);
 
   @override
   void initState() {
     super.initState();
-    _endTime = DateTime.now().add(const Duration(hours: 6));
+    _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (_remaining.inSeconds > 0) {
+        setState(() {
+          _remaining -= const Duration(seconds: 1);
+        });
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _countdownTimer.cancel();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final hours = _remaining.inHours.toString().padLeft(2, '0');
+    final minutes =
+        _remaining.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds =
+        _remaining.inSeconds.remainder(60).toString().padLeft(2, '0');
+
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16),
       child: Row(
         children: [
-          _CountdownBox(label: 'Hours', value: '06'),
+          _CountdownBox(label: 'Hours', value: hours),
           const SizedBox(width: 8),
-          _CountdownBox(label: 'Minutes', value: '45'),
+          _CountdownBox(label: 'Minutes', value: minutes),
           const SizedBox(width: 8),
-          _CountdownBox(label: 'Seconds', value: '23'),
+          _CountdownBox(label: 'Seconds', value: seconds),
         ],
       ),
     );
@@ -420,15 +344,20 @@ class _CountdownBox extends StatelessWidget {
         children: [
           Text(
             value,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(context)
+                .textTheme
+                .bodyMedium
+                ?.copyWith(fontWeight: FontWeight.bold),
           ),
           Text(
             label,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.mutedForeground),
+            style: Theme.of(context)
+                .textTheme
+                .bodySmall
+                ?.copyWith(color: AppTheme.mutedForeground),
           ),
         ],
       ),
     );
   }
 }
-

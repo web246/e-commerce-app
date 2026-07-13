@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:provider/provider.dart';
-import '../providers/cart_provider.dart';
+
+import '../providers/providers.dart';
 import '../theme/app_theme.dart';
 
 class CartScreen extends StatefulWidget {
@@ -13,6 +14,7 @@ class CartScreen extends StatefulWidget {
 
 class _CartScreenState extends State<CartScreen> {
   final _couponController = TextEditingController();
+  String? _appliedCouponCode;
 
   @override
   void dispose() {
@@ -22,7 +24,42 @@ class _CartScreenState extends State<CartScreen> {
 
   @override
   Widget build(BuildContext context) {
+    const _validCoupons = {
+      'SAVE10': {'type': 'percent', 'value': 10, 'description': '10% off'},
+      'WELCOME20': {'type': 'percent', 'value': 20, 'description': '20% off'},
+      'FREESHIP': {'type': 'free_shipping', 'value': 0, 'description': 'Free shipping'},
+      'FLAT500': {'type': 'fixed', 'value': 500, 'description': 'KSh 500 off'},
+    };
+
     final cartProvider = context.watch<CartProvider>();
+
+    // Compute discount from applied coupon
+    double discountAmount = 0;
+    bool freeShipping = false;
+    String? appliedDesc;
+    if (_appliedCouponCode != null) {
+      final coupon = _validCoupons[_appliedCouponCode];
+      if (coupon != null) {
+        appliedDesc = coupon['description'] as String;
+        switch (coupon['type']) {
+          case 'percent':
+            discountAmount = cartProvider.subtotal * (coupon['value'] as int) / 100;
+            break;
+          case 'fixed':
+            discountAmount = (coupon['value'] as int).toDouble();
+            break;
+          case 'free_shipping':
+            freeShipping = true;
+            break;
+        }
+      }
+    }
+
+    final double shippingCost =
+        freeShipping ? 0 : (cartProvider.subtotal >= 2000 ? 0 : 150);
+    final double finalTotal =
+        (cartProvider.subtotal - discountAmount + shippingCost)
+            .clamp(0, double.infinity);
 
     if (cartProvider.items.isEmpty) {
       return Scaffold(
@@ -37,7 +74,8 @@ class _CartScreenState extends State<CartScreen> {
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              const Icon(Icons.shopping_cart_outlined, size: 64, color: AppTheme.mutedForeground),
+              const Icon(Icons.shopping_cart_outlined,
+                  size: 64, color: AppTheme.mutedForeground),
               const SizedBox(height: 16),
               Text(
                 'Your Cart is Empty',
@@ -46,7 +84,10 @@ class _CartScreenState extends State<CartScreen> {
               const SizedBox(height: 8),
               Text(
                 'Add items to get started',
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(color: AppTheme.mutedForeground),
+                style: Theme.of(context)
+                    .textTheme
+                    .bodyMedium
+                    ?.copyWith(color: AppTheme.mutedForeground),
               ),
               const SizedBox(height: 24),
               ElevatedButton(
@@ -95,7 +136,8 @@ class _CartScreenState extends State<CartScreen> {
                           child: Image.network(
                             item.product.thumbnail,
                             fit: BoxFit.cover,
-                            errorBuilder: (_, __, ___) => const Icon(Icons.image),
+                            errorBuilder: (_, __, ___) =>
+                                const Icon(Icons.image),
                           ),
                         ),
                         const SizedBox(width: 12),
@@ -105,7 +147,10 @@ class _CartScreenState extends State<CartScreen> {
                             children: [
                               Text(
                                 item.product.storeName,
-                                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: AppTheme.primary),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .bodySmall
+                                    ?.copyWith(color: AppTheme.primary),
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                               ),
@@ -118,10 +163,13 @@ class _CartScreenState extends State<CartScreen> {
                               const SizedBox(height: 4),
                               Text(
                                 'KES ${item.product.price.toStringAsFixed(0)}',
-                                style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                                  fontWeight: FontWeight.bold,
-                                  color: AppTheme.primary,
-                                ),
+                                style: Theme.of(context)
+                                    .textTheme
+                                    .titleLarge
+                                    ?.copyWith(
+                                      fontWeight: FontWeight.bold,
+                                      color: AppTheme.primary,
+                                    ),
                               ),
                             ],
                           ),
@@ -138,24 +186,29 @@ class _CartScreenState extends State<CartScreen> {
                                   IconButton(
                                     icon: const Icon(Icons.remove, size: 16),
                                     onPressed: item.quantity > 1
-                                        ? () => cartProvider.updateQuantity(item.key, item.quantity - 1)
+                                        ? () => cartProvider.updateQuantity(
+                                            item.key, item.quantity - 1)
                                         : null,
                                   ),
                                   SizedBox(
                                     width: 24,
-                                    child: Center(child: Text(item.quantity.toString())),
+                                    child: Center(
+                                        child: Text(item.quantity.toString())),
                                   ),
                                   IconButton(
                                     icon: const Icon(Icons.add, size: 16),
-                                    onPressed: () => cartProvider.updateQuantity(item.key, item.quantity + 1),
+                                    onPressed: () => cartProvider.updateQuantity(
+                                        item.key, item.quantity + 1),
                                   ),
                                 ],
                               ),
                             ),
                             const SizedBox(height: 4),
                             IconButton(
-                              icon: const Icon(Icons.delete_outline, color: AppTheme.destructive, size: 20),
-                              onPressed: () => cartProvider.removeItem(item.key),
+                              icon: const Icon(Icons.delete_outline,
+                                  color: AppTheme.destructive, size: 20),
+                              onPressed: () =>
+                                  cartProvider.removeItem(item.key),
                             ),
                           ],
                         ),
@@ -166,7 +219,8 @@ class _CartScreenState extends State<CartScreen> {
               }).toList(),
               const SizedBox(height: 24),
               // Coupon
-              Text('Promo Code', style: Theme.of(context).textTheme.titleLarge),
+              Text('Promo Code',
+                  style: Theme.of(context).textTheme.titleLarge),
               const SizedBox(height: 8),
               Row(
                 children: [
@@ -175,21 +229,66 @@ class _CartScreenState extends State<CartScreen> {
                       controller: _couponController,
                       decoration: InputDecoration(
                         hintText: 'Enter coupon code',
-                        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                        border: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(8)),
                       ),
                     ),
                   ),
                   const SizedBox(width: 8),
                   ElevatedButton(
                     onPressed: () {
+                      final code =
+                          _couponController.text.trim().toUpperCase();
+                      if (code.isEmpty) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content:
+                                  Text('Please enter a coupon code')),
+                        );
+                        return;
+                      }
+                      final coupon = _validCoupons[code];
+                      if (coupon == null) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                              content: Text('Invalid coupon code')),
+                        );
+                        return;
+                      }
+                      setState(() {
+                        _appliedCouponCode = code;
+                      });
+                      final cart = context.read<CartProvider>();
+                      cart.coupon = code;
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Coupon applied')),
+                        SnackBar(
+                          content: Text(
+                              'Coupon applied: ${coupon['description']}'),
+                        ),
                       );
                     },
                     child: const Text('Apply'),
                   ),
                 ],
               ),
+              if (_appliedCouponCode != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 8),
+                  child: Row(
+                    children: [
+                      Icon(Icons.check_circle,
+                          size: 16, color: Colors.green.shade700),
+                      const SizedBox(width: 4),
+                      Text(
+                        'Coupon "$_appliedCouponCode" applied ($appliedDesc)',
+                        style: Theme.of(context)
+                            .textTheme
+                            .bodySmall
+                            ?.copyWith(color: Colors.green.shade700),
+                      ),
+                    ],
+                  ),
+                ),
               const SizedBox(height: 24),
               // Order Summary
               Container(
@@ -201,16 +300,26 @@ class _CartScreenState extends State<CartScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text('Order Summary', style: Theme.of(context).textTheme.titleLarge),
+                    Text('Order Summary',
+                        style: Theme.of(context).textTheme.titleLarge),
                     const SizedBox(height: 12),
                     _SummaryRow(
                       label: 'Subtotal',
-                      value: 'KES ${cartProvider.subtotal.toStringAsFixed(0)}',
+                      value:
+                          'KES ${cartProvider.subtotal.toStringAsFixed(0)}',
                     ),
+                    if (discountAmount > 0) ...[
+                      const SizedBox(height: 8),
+                      _SummaryRow(
+                        label: 'Discount',
+                        value:
+                            '-KES ${discountAmount.toStringAsFixed(0)}',
+                      ),
+                    ],
                     const SizedBox(height: 8),
                     _SummaryRow(
                       label: 'Shipping',
-                      value: cartProvider.subtotal >= 2000
+                      value: freeShipping || cartProvider.subtotal >= 2000
                           ? 'FREE'
                           : 'KES 150',
                     ),
@@ -219,15 +328,18 @@ class _CartScreenState extends State<CartScreen> {
                     const SizedBox(height: 8),
                     _SummaryRow(
                       label: 'Total',
-                      value: 'KES ${(cartProvider.subtotal + (cartProvider.subtotal < 2000 ? 150 : 0)).toStringAsFixed(0)}',
+                      value: 'KES ${finalTotal.toStringAsFixed(0)}',
                       isBold: true,
                     ),
-                    if (cartProvider.subtotal < 2000)
+                    if (!freeShipping && cartProvider.subtotal < 2000)
                       Padding(
                         padding: const EdgeInsets.only(top: 8),
                         child: Text(
                           'Free shipping on orders over KES 2000',
-                          style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.green),
+                          style: Theme.of(context)
+                              .textTheme
+                              .bodySmall
+                              ?.copyWith(color: Colors.green),
                         ),
                       ),
                   ],
@@ -284,7 +396,10 @@ class _SummaryRow extends StatelessWidget {
         Text(
           value,
           style: isBold
-              ? Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold)
+              ? Theme.of(context)
+                  .textTheme
+                  .titleLarge
+                  ?.copyWith(fontWeight: FontWeight.bold)
               : Theme.of(context).textTheme.bodyMedium,
         ),
       ],
