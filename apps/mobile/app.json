@@ -1,0 +1,26 @@
+{
+  "expo": {
+    "name": "Vendi",
+    "slug": "vendi",
+    "version": "0.1.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "backgroundColor": "#0F172A",
+      "resizeMode": "contain"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0F172A"
+      },
+      "package": "com.vendi.app"
+    },
+    "ios": {
+      "bundleIdentifier": "com.vendi.app"
+    },
+    "plugins": [
+      "expo-linking"
+    ]
+  }
+}
