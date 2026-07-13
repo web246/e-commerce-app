@@ -1,0 +1,11 @@
+{
+  "name": "vendi",
+  "private": true,
+  "workspaces": ["apps/*", "packages/*"],
+  "scripts": {
+    "mobile": "cd apps/mobile && npx react-native start",
+    "mobile:android": "cd apps/mobile && npx react-native run-android",
+    "web": "cd apps/web && npx next dev",
+    "web:build": "cd apps/web && npx next build"
+  }
+}
