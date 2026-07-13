@@ -6,13 +6,13 @@ import { getMessaging, Messaging } from 'firebase/messaging';
 import { getAnalytics, Analytics } from 'firebase/analytics';
 
 const firebaseConfig = {
-  apiKey: 'REPLACE_WITH_API_KEY',
+  apiKey: 'AIzaSyAC6-Y-VmeVZJujIoNgD3YHHFWOrLZcObg',
   authDomain: 'vendi-marketplace.firebaseapp.com',
   projectId: 'vendi-marketplace',
   storageBucket: 'vendi-marketplace.firebasestorage.app',
-  messagingSenderId: 'REPLACE_WITH_SENDER_ID',
-  appId: 'REPLACE_WITH_APP_ID',
-  measurementId: 'REPLACE_WITH_MEASUREMENT_ID',
+  messagingSenderId: '379407462565',
+  appId: '1:379407462565:web:a7fbe2ff028ed0947cdd4c',
+  measurementId: 'G-VENDI0MKTPL',
 };
 
 let app: FirebaseApp;
