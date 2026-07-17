@@ -19,8 +19,6 @@
     "ios": {
       "bundleIdentifier": "com.vendi.app"
     },
-    "plugins": [
-      "expo-linking"
-    ]
+    "plugins": []
   }
 }

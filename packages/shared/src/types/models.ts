@@ -125,4 +125,7 @@ export interface Coupon {
   type: 'percent' | 'fixed' | 'free_shipping';
   value: number;
   description: string;
+  isActive: boolean;
+  expiresAt?: string;
+  minOrderAmount?: number;
 }

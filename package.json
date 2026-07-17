@@ -1,11 +1,29 @@
 {
   "name": "vendi",
   "private": true,
-  "workspaces": ["apps/*", "packages/*"],
+  "workspaces": [
+    "apps/*",
+    "packages/*",
+    "functions"
+  ],
   "scripts": {
-    "mobile": "cd apps/mobile && npx react-native start",
-    "mobile:android": "cd apps/mobile && npx react-native run-android",
-    "web": "cd apps/web && npx next dev",
-    "web:build": "cd apps/web && npx next build"
-  }
+    "dev": "turbo dev",
+    "build": "turbo build",
+    "lint": "turbo lint",
+    "typecheck": "turbo typecheck",
+    "mobile": "cd apps/mobile && npx expo start",
+    "mobile:android": "cd apps/mobile && npx expo start --android",
+    "web": "cd apps/web && npx vite",
+    "desktop": "cd apps/desktop && npx tauri dev",
+    "firebase:emulate": "firebase emulators:start",
+    "firebase:deploy": "firebase deploy",
+    "firebase:deploy:functions": "firebase deploy --only functions",
+    "firebase:deploy:firestore": "firebase deploy --only firestore",
+    "seed": "npx tsx scripts/seed.ts"
+  },
+  "devDependencies": {
+    "firebase-tools": "^13.0.0",
+    "turbo": "^2.4.0",
+    "typescript": "^5.7.0"
+  },
 }

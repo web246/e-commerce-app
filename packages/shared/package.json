@@ -1,10 +1,24 @@
 {
   "name": "@vendi/shared",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "main": "src/index.ts",
   "types": "src/index.ts",
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "build": "tsc"
+  },
   "dependencies": {
-    "firebase": "^10.0.0"
+    "firebase": "^11.0.0",
+    "zod": "^3.25.76"
+  },
+  "peerDependencies": {
+    "@tanstack/react-query": "^5.101.2",
+    "react": "^18.3.0 || ^19.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.1.1",
+    "@types/react": "^19.2.17",
+    "typescript": "^5.7.0"
   }
 }
