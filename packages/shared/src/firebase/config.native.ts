@@ -1,10 +1,12 @@
-// Firebase config for web (Vite) — uses IndexedDB persistence (default for getAuth).
-// The .native.ts sibling is resolved by Metro for React Native builds.
+// Firebase config for React Native — uses AsyncStorage for auth persistence.
+// Metro resolves this file (config.native.ts) on mobile platforms.
+// The .ts sibling (config.ts) is used on web (Vite).
 
 import { initializeApp, getApps, type FirebaseApp } from 'firebase/app';
-import { getAuth, connectAuthEmulator, type Auth } from 'firebase/auth';
+import { initializeAuth, connectAuthEmulator, type Auth, getReactNativePersistence } from 'firebase/auth';
 import { getFirestore, connectFirestoreEmulator, type Firestore } from 'firebase/firestore';
 import { getStorage, type FirebaseStorage } from 'firebase/storage';
+import ReactNativeAsyncStorage from '@react-native-async-storage/async-storage';
 
 interface FirebaseEnv {
   apiKey: string;
@@ -61,8 +63,12 @@ export function initFirebase() {
       })
     : getApps()[0];
 
-  // Web: default persistence is IndexedDB (handled by getAuth).
-  auth = getAuth(app);
+  // React Native: use AsyncStorage so auth state survives app restarts.
+  // Static import at the top is safe — Metro resolves this file only on mobile.
+  auth = initializeAuth(app, {
+    persistence: getReactNativePersistence(ReactNativeAsyncStorage),
+  });
+
   db = getFirestore(app);
   storage = getStorage(app);
 
@@ -72,7 +78,7 @@ export function initFirebase() {
     env('EXPO_PUBLIC_USE_FIREBASE_EMULATOR');
   const useEmulator = useEmulatorRaw === 'true' || useEmulatorRaw === '1';
 
-  if (typeof window !== 'undefined' && useEmulator) {
+  if (useEmulator) {
     connectAuthEmulator(auth, 'http://localhost:9099');
     connectFirestoreEmulator(db, 'localhost', 8080);
   }

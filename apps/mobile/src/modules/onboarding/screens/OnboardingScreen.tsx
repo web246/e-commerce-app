@@ -1,50 +1,63 @@
-// Vendi Onboarding — 3 animated slides using Reanimated
-// Shows on first launch only, stores completion in SecureStore (encrypted)
+// Vendi Onboarding — 3 marketplace story slides with horizontal paging
+// Shows on first launch only (or until Firebase auth confirms a session)
 
-import React, { useRef, useState, useCallback } from 'react';
+import React, { useRef, useState, useCallback, useEffect } from 'react';
 import {
-  View, Text, Dimensions, StyleSheet, FlatList, Platform,
+  View, Text, Dimensions, StyleSheet, FlatList, Platform, Animated, TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import Animated, {
+import AnimatedRN, {
   useSharedValue,
   useAnimatedStyle,
   withSpring,
   interpolate,
   Extrapolate,
 } from 'react-native-reanimated';
-import { useColors, spacing, typography, motion } from '../../../core/theme';
+import { useColors, spacing } from '../../../core/theme';
 import { markOnboardingComplete } from '../hooks/useOnboarding';
 import { Button } from '../../../core/ui/Button';
-import { Icon, IconName } from '../../../core/ui/Icon';
 import { OnboardingSlide } from '../components/OnboardingSlide';
 import { PaginationDots } from '../components/PaginationDots';
 
 const { width } = Dimensions.get('window');
 
 interface Slide {
-  icon: IconName;
+  image: string;
   title: string;
   subtitle: string;
 }
 
 const slides: Slide[] = [
   {
-    icon: 'bag-handle-outline',
+    image: 'https://images.unsplash.com/photo-1523474253046-8cd2748b5fd2?w=600&h=600&fit=crop',
     title: 'Discover Products',
-    subtitle: 'Explore unique products from local stores around you. Find exactly what you need.',
+    subtitle: 'Browse thousands of products from local stores near you',
   },
   {
-    icon: 'chatbubbles-outline',
-    title: 'Connect with Sellers',
-    subtitle: 'Chat directly with sellers, ask questions, and get the best deals.',
+    image: 'https://images.unsplash.com/photo-1553729459-afe8f2e2ed65?w=600&h=600&fit=crop',
+    title: 'Order with Ease',
+    subtitle: 'Secure checkout with M-Pesa, card, or cash on delivery',
   },
   {
-    icon: 'shield-checkmark-outline',
-    title: 'Shop with Confidence',
-    subtitle: 'Secure payments, order tracking, and easy returns. Your satisfaction is guaranteed.',
+    image: 'https://images.unsplash.com/photo-1485968579580-b6d095142e6e?w=600&h=600&fit=crop',
+    title: 'Fast Delivery',
+    subtitle: 'Track your order in real-time from the store to your doorstep',
   },
 ];
+
+function ProgressBar({ count, currentIndex }: { count: number; currentIndex: number }) {
+  const colors = useColors();
+  return (
+    <View style={[styles.progressBar, { backgroundColor: colors.border }]}>
+      <View
+        style={[styles.progressFill, {
+          width: `${((currentIndex + 1) / count) * 100}%`,
+          backgroundColor: colors.accent,
+        }]}
+      />
+    </View>
+  );
+}
 
 interface OnboardingScreenProps {
   onComplete: () => void;
@@ -58,117 +71,127 @@ export default function OnboardingScreen({ onComplete }: OnboardingScreenProps) 
   const isLast = currentIndex === slides.length - 1;
 
   const buttonScale = useSharedValue(1);
-  const buttonStyle = useAnimatedStyle(() => ({
-    transform: [{ scale: buttonScale.value }],
-  }));
+  const buttonStyle = useAnimatedStyle(() => ({ transform: [{ scale: buttonScale.value }] }));
+
+  const entranceOpacity = useRef(new Animated.Value(0)).current;
+  const entranceTranslate = useRef(new Animated.Value(40)).current;
+
+  useEffect(() => {
+    Animated.parallel([
+      Animated.timing(entranceOpacity, { toValue: 1, duration: 600, useNativeDriver: true }),
+      Animated.timing(entranceTranslate, { toValue: 0, duration: 500, useNativeDriver: true }),
+    ]).start();
+  }, [entranceOpacity, entranceTranslate]);
+
+  const animateButton = useCallback(() => {
+    buttonScale.value = withSpring(0.93, {}, () => { buttonScale.value = withSpring(1); });
+  }, [buttonScale]);
 
   const handleNext = useCallback(() => {
+    animateButton();
     if (isLast) {
-      buttonScale.value = withSpring(0.95, {}, () => {
-        buttonScale.value = withSpring(1);
-      });
       markOnboardingComplete();
       onComplete();
     } else {
       flatListRef.current?.scrollToIndex({ index: currentIndex + 1, animated: true });
+      setCurrentIndex(currentIndex + 1);
     }
-  }, [isLast, currentIndex, onComplete, buttonScale]);
+  }, [isLast, currentIndex, onComplete, animateButton]);
 
   const handleSkip = useCallback(() => {
+    animateButton();
     markOnboardingComplete();
     onComplete();
-  }, [onComplete]);
-
-  const onMomentumEnd = useCallback((e: any) => {
-    const idx = Math.round(e.nativeEvent.contentOffset.x / width);
-    setCurrentIndex(idx);
-  }, []);
+  }, [onComplete, animateButton]);
 
   return (
-    <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
-      {/* Skip button */}
-      <View style={styles.skipContainer}>
-        {!isLast && (
-          <Button variant="text" size="sm" onPress={handleSkip}>
-            Skip
-          </Button>
-        )}
-      </View>
+    <Animated.View style={[{ flex: 1, opacity: entranceOpacity, transform: [{ translateY: entranceTranslate }] }]}>
+      <SafeAreaView style={[styles.container, { backgroundColor: colors.background }]}>
+        {/* Top section: Progress + Skip */}
+        <View style={styles.topBar}>
+          <ProgressBar count={slides.length} currentIndex={currentIndex} />
+          {!isLast && (
+            <TouchableOpacity style={styles.skipBtn} onPress={handleSkip} hitSlop={{ top: 12, bottom: 12, left: 20, right: 20 }}>
+              <Text style={[styles.skipLabel, { color: colors.accent }]}>Skip</Text>
+            </TouchableOpacity>
+          )}
+        </View>
 
-      {/* Slides */}
-      <FlatList
-        ref={flatListRef}
-        data={slides}
-        horizontal
-        pagingEnabled
-        showsHorizontalScrollIndicator={false}
-        bounces={false}
-        onScroll={(e) => { scrollX.value = e.nativeEvent.contentOffset.x; }}
-        onMomentumScrollEnd={onMomentumEnd}
-        scrollEventThrottle={16}
-        renderItem={({ item, index }) => <OnboardingSlide item={item} index={index} scrollX={scrollX} />}
-        keyExtractor={(_, i) => String(i)}
-      />
+        {/* Slides area — takes remaining space */}
+        <View style={styles.slidesArea}>
+          <FlatList
+            ref={flatListRef}
+            data={slides}
+            horizontal
+            pagingEnabled
+            showsHorizontalScrollIndicator={false}
+            bounces={false}
+            style={{ flex: 1 }}
+            onScroll={(e) => { scrollX.value = e.nativeEvent.contentOffset.x; }}
+            onMomentumScrollEnd={(e) => {
+              const idx = Math.round(e.nativeEvent.contentOffset.x / width);
+              setCurrentIndex(idx);
+            }}
+            scrollEventThrottle={16}
+            renderItem={({ item, index }) => <OnboardingSlide item={item} index={index} scrollX={scrollX} />}
+            keyExtractor={(_, i) => String(i)}
+          />
+        </View>
 
-      {/* Bottom */}
-      <View style={styles.bottom}>
-        <PaginationDots count={slides.length} scrollX={scrollX} />
-
-        <Animated.View style={[styles.buttonWrapper, buttonStyle]}>
-          <Button
-            variant="primary"
-            size="lg"
-            fullWidth
-            icon={isLast ? 'checkmark-circle-outline' : 'arrow-forward-outline'}
-            iconPosition="right"
-            onPress={handleNext}
-          >
-            {isLast ? 'Get Started' : 'Next'}
-          </Button>
-        </Animated.View>
-      </View>
-    </SafeAreaView>
+        {/* Bottom controls */}
+        <View style={styles.bottom}>
+          <PaginationDots count={slides.length} scrollX={scrollX} />
+          <AnimatedRN.View style={[styles.buttonWrapper, buttonStyle]}>
+            <Button
+              variant="primary"
+              size="lg"
+              fullWidth
+              icon={isLast ? 'checkmark-circle-outline' : 'arrow-forward-outline'}
+              iconPosition="right"
+              onPress={handleNext}
+            >
+              {isLast ? 'Get Started' : 'Next'}
+            </Button>
+          </AnimatedRN.View>
+        </View>
+      </SafeAreaView>
+    </Animated.View>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1 },
-  skipContainer: {
-    position: 'absolute',
-    top: Platform.OS === 'ios' ? 0 : spacing.md,
-    right: spacing.cardPadding,
-    zIndex: 10,
+  topBar: {
+    paddingHorizontal: spacing.cardPadding,
+    paddingTop: spacing.md,
   },
-  slide: {
+  skipBtn: {
+    alignSelf: 'flex-end',
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    marginTop: spacing.sm,
+  },
+  skipLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  progressBar: {
+    height: 4,
+    borderRadius: 2,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 2,
+  },
+  slidesArea: {
     flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: spacing.xl,
+    position: 'relative',
   },
-  iconContainer: { marginBottom: spacing.xxl },
-  iconCircle: {
-    width: 160,
-    height: 160,
-    borderRadius: 80,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  title: { textAlign: 'center', marginBottom: spacing.md },
-  subtitle: { textAlign: 'center', lineHeight: 24, paddingHorizontal: spacing.sm },
   bottom: {
     paddingHorizontal: spacing.cardPadding,
     paddingBottom: spacing.xl,
     gap: spacing.xl,
-  },
-  dots: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    alignItems: 'center',
-    gap: spacing.xs,
-  },
-  dot: {
-    height: 8,
-    borderRadius: 4,
   },
   buttonWrapper: {
     width: '100%',

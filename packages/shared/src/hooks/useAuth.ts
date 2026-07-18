@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
-import { onAuthChanged } from '../firebase/auth';
+import { onAuthChanged, getGoogleRedirectResult } from '../firebase/auth';
 import { getUserProfile } from '../firebase/firestore';
 import type { User } from '../types/models';
 
@@ -19,6 +19,9 @@ export function useAuth() {
   });
 
   useEffect(() => {
+    // Handle Google Sign-In redirect result (mobile).
+    // Must be called before onAuthChanged to capture the redirect login.
+    getGoogleRedirectResult().catch(() => {});
     const unsubscribe = onAuthChanged(async (firebaseUser) => {
       if (firebaseUser) {
         try {

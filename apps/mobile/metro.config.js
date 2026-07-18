@@ -14,6 +14,7 @@ config.resolver.extraNodeModules = {
   'react-native': path.join(appNodeModules, 'react-native'),
   '@tanstack/react-query': path.join(appNodeModules, '@tanstack', 'react-query'),
   '@tanstack/query-core': path.join(appNodeModules, '@tanstack', 'query-core'),
+  '@react-native-async-storage/async-storage': path.join(appNodeModules, '@react-native-async-storage', 'async-storage'),
 };
 
 // Watch the shared package for changes during development.

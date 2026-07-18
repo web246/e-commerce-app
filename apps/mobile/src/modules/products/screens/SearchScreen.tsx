@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { View, Text, FlatList, RefreshControl, StyleSheet, Dimensions } from 'react-native';
 import { useProducts } from '@vendi/shared';
-import { ScreenLayout, Input, ProductCard, EmptyState, Spinner } from '../../../core/ui';
+import { ScreenLayout, Input, ProductCard, Spinner } from '../../../core/ui';
 import { useColors, spacing, screenPadding } from '../../../core/theme';
+import { FadeInView, AnimatedEmptyState } from '../../../core/animations';
 import type { Product } from '@vendi/shared';
 
 const { width } = Dimensions.get('window');
@@ -23,12 +24,11 @@ export default function SearchScreen({ navigation }: any) {
     debounced.trim() ? { search: debounced.trim(), limit: 50 } : { limit: 50 }
   );
 
-  const renderProduct = ({ item }: { item: Product }) => (
+  const renderProduct = ({ item }: { item: Product; index: number }) => (
     <View style={{ width: CARD_WIDTH }}>
-      <ProductCard
-        product={item}
-        onPress={() => navigation.navigate('Product', { id: item.id })}
-      />
+      <FadeInView delay={index * 60} duration={300}>
+        <ProductCard product={item} onPress={() => navigation.navigate('Product', { id: item.id })} />
+      </FadeInView>
     </View>
   );
 
@@ -61,15 +61,17 @@ export default function SearchScreen({ navigation }: any) {
             <RefreshControl refreshing={isLoading} onRefresh={refetch} tintColor={colors.accent} />
           }
           ListEmptyComponent={
-            <EmptyState
-              icon="search-outline"
-              title={debounced.trim() ? 'No products found' : 'Search products'}
-              subtitle={
-                debounced.trim()
-                  ? 'Try a different search term'
-                  : 'Start typing to search products'
-              }
-            />
+            <FadeInView delay={200}>
+              <AnimatedEmptyState
+                icon="search-outline"
+                title={debounced.trim() ? 'No products found' : 'Search products'}
+                subtitle={
+                  debounced.trim()
+                    ? 'Try a different search term'
+                    : 'Start typing to search products'
+                }
+              />
+            </FadeInView>
           }
         />
       )}

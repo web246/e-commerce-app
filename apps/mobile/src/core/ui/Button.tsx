@@ -1,13 +1,15 @@
 // Vendi Button — fully modular with variants, sizes, icons, loading state
+// Spring-scale animation on press for tactile feedback.
 // No hardcoded colors/spacing — all from theme
 
-import React from 'react';
+import React, { useRef } from 'react';
 import {
   TouchableOpacity,
   Text,
   ActivityIndicator,
   StyleSheet,
   View,
+  Animated,
 } from 'react-native';
 import { useColors, spacing, radii, typography } from '../theme';
 import { Icon, IconName } from './Icon';
@@ -41,39 +43,66 @@ export function Button({
   const colors = useColors();
   const isDisabled = disabled || loading;
 
+  // Spring-scale animation for tactile press feedback
+  const scaleAnim = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 0.95,
+      useNativeDriver: true,
+      friction: 8,
+      tension: 100,
+    }).start();
+  };
+
+  const handlePressOut = () => {
+    Animated.spring(scaleAnim, {
+      toValue: 1,
+      useNativeDriver: true,
+      friction: 5,
+      tension: 120,
+    }).start();
+  };
+
   const { containerStyle, textStyle, iconColor } = getVariantStyles(variant, colors);
   const { paddingVertical, paddingHorizontal, iconSize, textPreset } = getSizeStyles(size);
 
-  return (
-    <TouchableOpacity
-      style={[
-        styles.base,
-        containerStyle,
-        { paddingVertical, paddingHorizontal },
-        fullWidth && styles.fullWidth,
-        isDisabled && { opacity: 0.5 },
-      ]}
-      onPress={onPress}
-      disabled={isDisabled}
-      activeOpacity={0.8}
-    >
-      {loading ? (
-        <ActivityIndicator
-          size="small"
-          color={variant === 'primary' || variant === 'danger' ? colors.textInverse : colors.textPrimary}
-        />
-      ) : (
-        <View style={[styles.content]}>
-          {icon && iconPosition === 'left' && (
-            <Icon name={icon} size={iconSize} color={iconColor} />
-          )}
-          <Text style={[textPreset, textStyle]}>{children}</Text>
-          {icon && iconPosition === 'right' && (
-            <Icon name={icon} size={iconSize} color={iconColor} />
-          )}
-        </View>
+  const content = loading ? (
+    <ActivityIndicator
+      size="small"
+      color={variant === 'primary' || variant === 'danger' ? colors.textInverse : colors.textPrimary}
+    />
+  ) : (
+    <View style={styles.content}>
+      {icon && iconPosition === 'left' && (
+        <Icon name={icon} size={iconSize} color={iconColor} />
       )}
-    </TouchableOpacity>
+      <Text style={[textPreset, textStyle]}>{children}</Text>
+      {icon && iconPosition === 'right' && (
+        <Icon name={icon} size={iconSize} color={iconColor} />
+      )}
+    </View>
+  );
+
+  return (
+    <Animated.View style={{ transform: [{ scale: scaleAnim }] }}>
+      <TouchableOpacity
+        style={[
+          styles.base,
+          containerStyle,
+          { paddingVertical, paddingHorizontal },
+          fullWidth && styles.fullWidth,
+          isDisabled && { opacity: 0.5 },
+        ]}
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        disabled={isDisabled}
+        activeOpacity={0.85}
+      >
+        {content}
+      </TouchableOpacity>
+    </Animated.View>
   );
 }
 

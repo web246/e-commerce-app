@@ -5,7 +5,7 @@ import {
   registerWithEmail,
   signOutUser,
   sendPasswordReset,
-  signInWithGoogle,
+  signInWithGoogleRedirect,
 } from '@vendi/shared';
 import type { User } from '@vendi/shared';
 
@@ -45,7 +45,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const googleSignIn = useCallback(async () => {
-    await signInWithGoogle();
+    await signInWithGoogleRedirect();
   }, []);
 
   const value = useMemo<AuthCtx>(() => ({

@@ -3,6 +3,7 @@ import { View, Text, Image, FlatList, RefreshControl, StyleSheet, Dimensions } f
 import { useStore, useProducts } from '@vendi/shared';
 import { ScreenLayout, ProductCard, Spinner } from '../../../core/ui';
 import { useColors, spacing, radii, screenPadding } from '../../../core/theme';
+import { FadeInView, SlideInView } from '../../../core/animations';
 import type { Product } from '@vendi/shared';
 
 const { width } = Dimensions.get('window');
@@ -16,12 +17,11 @@ export default function StoreScreen({ route, navigation }: any) {
 
   const loading = storeLoading || productsLoading;
 
-  const renderProduct = ({ item }: { item: Product }) => (
+  const renderProduct = ({ item, index }: { item: Product; index: number }) => (
     <View style={{ width: CARD_WIDTH }}>
-      <ProductCard
-        product={item}
-        onPress={() => navigation.navigate('Product', { id: item.id })}
-      />
+      <FadeInView delay={index * 60} duration={300}>
+        <ProductCard product={item} onPress={() => navigation.navigate('Product', { id: item.id })} />
+      </FadeInView>
     </View>
   );
 
@@ -30,24 +30,28 @@ export default function StoreScreen({ route, navigation }: any) {
   }
 
   const ListHeader = () => (
-    <View style={[styles.storeHeader, { borderBottomColor: colors.border }]}>
-      <View style={styles.storeInfo}>
-        {store?.logoUrl && (
-          <Image source={{ uri: store.logoUrl }} style={[styles.storeLogo, { backgroundColor: colors.surfaceHover }]} />
-        )}
-        <View style={styles.storeMeta}>
-          <Text style={[styles.storeName, { color: colors.textPrimary }]}>{store?.name ?? 'Store'}</Text>
-          {store?.description && (
-            <Text style={[styles.storeDescription, { color: colors.textSecondary }]} numberOfLines={3}>
-              {store.description}
-            </Text>
+    <FadeInView duration={500}>
+      <View style={[styles.storeHeader, { borderBottomColor: colors.border }]}>
+        <View style={styles.storeInfo}>
+          {store?.logoUrl && (
+            <Image source={{ uri: store.logoUrl }} style={[styles.storeLogo, { backgroundColor: colors.surfaceHover }]} />
           )}
-          <Text style={[styles.productCount, { color: colors.textTertiary }]}>
-            {products.length} product{products.length !== 1 ? 's' : ''}
-          </Text>
+          <View style={styles.storeMeta}>
+            <Text style={[styles.storeName, { color: colors.textPrimary }]}>{store?.name ?? 'Store'}</Text>
+            {store?.description && (
+              <SlideInView delay={200} direction="up" distance={15}>
+                <Text style={[styles.storeDescription, { color: colors.textSecondary }]} numberOfLines={3}>
+                  {store.description}
+                </Text>
+              </SlideInView>
+            )}
+            <Text style={[styles.productCount, { color: colors.textTertiary }]}>
+              {products.length} product{products.length !== 1 ? 's' : ''}
+            </Text>
+          </View>
         </View>
       </View>
-    </View>
+    </FadeInView>
   );
 
   return (
@@ -64,11 +68,13 @@ export default function StoreScreen({ route, navigation }: any) {
           <RefreshControl refreshing={loading} onRefresh={refetch} tintColor={colors.accent} />
         }
         ListEmptyComponent={
-          <View style={styles.empty}>
-            <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
-              This store has no products yet
-            </Text>
-          </View>
+          <FadeInView delay={300}>
+            <View style={styles.empty}>
+              <Text style={[styles.emptyText, { color: colors.textTertiary }]}>
+                This store has no products yet
+              </Text>
+            </View>
+          </FadeInView>
         }
       />
     </ScreenLayout>

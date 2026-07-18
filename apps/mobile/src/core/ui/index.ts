@@ -17,3 +17,5 @@ export { Divider } from './Divider';
 export { ProductCard } from './ProductCard';
 export { Header } from './Header';
 export { ScreenLayout } from './ScreenLayout';
+export { Toast } from './Toast';
+export type { ToastVariant } from './Toast';

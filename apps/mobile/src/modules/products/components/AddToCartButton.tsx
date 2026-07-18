@@ -1,6 +1,6 @@
 import React from 'react';
-import { Alert } from 'react-native';
 import { Button } from '../../../core/ui/Button';
+import { useToast } from '../../../core/context/ToastContext';
 import { useCart, useUpdateCart } from '@vendi/shared';
 import type { CartItem, Product } from '@vendi/shared';
 
@@ -11,11 +11,12 @@ interface AddToCartButtonProps {
 }
 
 export function AddToCartButton({ product, userId, cartItems }: AddToCartButtonProps) {
+  const { showToast } = useToast();
   const updateCart = useUpdateCart();
 
   const handleAddToCart = async () => {
     if (!userId) {
-      Alert.alert('Sign In Required', 'Please sign in to add items to your cart.');
+      showToast('Please sign in to add items to your cart.', 'error');
       return;
     }
 
@@ -40,7 +41,7 @@ export function AddToCartButton({ product, userId, cartItems }: AddToCartButtonP
       ];
     }
     await updateCart.mutateAsync({ userId, items: updated });
-    Alert.alert('Added to Cart', `${product.name} has been added to your cart.`);
+    showToast(`${product.name} added to cart!`, 'success');
   };
 
   return (

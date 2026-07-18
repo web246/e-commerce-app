@@ -20,15 +20,15 @@ export function PaginationDots({ count, scrollX }: PaginationDotsProps) {
   return (
     <View style={styles.dots}>
       {Array.from({ length: count }).map((_, i) => {
-        const isActive = scrollX.value >= (i - 0.5) * width && scrollX.value < (i + 0.5) * width;
-
         const dotStyle = useAnimatedStyle(() => {
           const inputRange = [(i - 1) * width, i * width, (i + 1) * width];
-          const scale = interpolate(scrollX.value, inputRange, [0.8, 1.2, 0.8], Extrapolate.CLAMP);
+          const scale = interpolate(scrollX.value, inputRange, [0.8, 1.4, 0.8], Extrapolate.CLAMP);
           const opacity = interpolate(scrollX.value, inputRange, [0.3, 1, 0.3], Extrapolate.CLAMP);
+          const dotWidth = interpolate(scrollX.value, inputRange, [8, 28, 8], Extrapolate.CLAMP);
           return {
             transform: [{ scale }],
             opacity,
+            width: dotWidth,
           };
         });
 
@@ -37,10 +37,7 @@ export function PaginationDots({ count, scrollX }: PaginationDotsProps) {
             key={i}
             style={[
               styles.dot,
-              {
-                backgroundColor: colors.textTertiary,
-                width: isActive ? 24 : 8,
-              },
+              { backgroundColor: colors.textTertiary },
               dotStyle,
             ]}
           />
