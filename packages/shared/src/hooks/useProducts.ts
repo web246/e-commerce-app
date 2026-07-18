@@ -1,51 +1,54 @@
-import { useState, useEffect } from 'react';
+'use client';
+
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { getProducts, getProductById, onProductsSnapshot } from '../firebase/firestore';
 import type { Product } from '../types/models';
+import { useEffect } from 'react';
 
-export function useProducts(opts?: { category?: string; featured?: boolean; bestSeller?: boolean; flashSale?: boolean; search?: string; limit?: number }) {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setLoading(true);
-    getProducts(opts)
-      .then(setProducts)
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [opts?.category, opts?.featured, opts?.bestSeller, opts?.flashSale, opts?.search, opts?.limit]);
-
-  return { products, loading, error, refetch: () => getProducts(opts).then(setProducts) };
+export function useProducts(opts?: {
+  category?: string;
+  storeId?: string;
+  featured?: boolean;
+  bestSeller?: boolean;
+  flashSale?: boolean;
+  search?: string;
+  limit?: number;
+}) {
+  return useQuery({
+    queryKey: ['products', opts],
+    queryFn: () => getProducts(opts),
+    staleTime: 30_000,
+  });
 }
 
-export function useProduct(id: string) {
-  const [product, setProduct] = useState<Product | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (!id) return;
-    setLoading(true);
-    getProductById(id)
-      .then(setProduct)
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
-  }, [id]);
-
-  return { product, loading, error };
+export function useProduct(id: string | undefined) {
+  return useQuery({
+    queryKey: ['product', id],
+    queryFn: () => (id ? getProductById(id) : null),
+    enabled: !!id,
+    staleTime: 60_000,
+  });
 }
 
-export function useLiveProducts(opts?: { category?: string; limit?: number }) {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [loading, setLoading] = useState(true);
+export function useLiveProducts(opts?: {
+  category?: string;
+  limit?: number;
+}) {
+  const queryClient = useQueryClient();
 
   useEffect(() => {
-    const unsub = onProductsSnapshot((data) => {
-      setProducts(data);
-      setLoading(false);
-    }, opts);
-    return () => unsub();
-  }, [opts?.category, opts?.limit]);
+    const unsubscribe = onProductsSnapshot(
+      (products: Product[]) => {
+        queryClient.setQueryData(['products', opts], products);
+      },
+      opts
+    );
+    return () => unsubscribe();
+  }, [opts?.category, opts?.limit, queryClient]);
 
-  return { products, loading };
+  return useQuery({
+    queryKey: ['products', opts],
+    queryFn: () => getProducts(opts),
+    staleTime: Infinity,
+  });
 }

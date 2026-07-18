@@ -16,7 +16,7 @@ import {
   QueryDocumentSnapshot,
 } from 'firebase/firestore';
 import { db } from './config';
-import type { Product, Order, Category, Review, Store, User, CartItem, Coupon } from '../types/models';
+import type { Product, Order, Category, Review, Store, User, CartItem, Coupon, Address, OrderItem, OrderStatus } from '../types/models';
 
 // ── Helpers ──────────────────────────────────────────────────────────
 function docToData<T>(doc: DocumentSnapshot): T | null {
@@ -31,9 +31,10 @@ function docsToData<T>(docs: QueryDocumentSnapshot[]): T[] {
 // ── Products ─────────────────────────────────────────────────────────
 export const productsCol = () => collection(db, 'products');
 
-export async function getProducts(opts?: { category?: string; featured?: boolean; bestSeller?: boolean; flashSale?: boolean; search?: string; limit?: number }) {
+export async function getProducts(opts?: { category?: string; storeId?: string; featured?: boolean; bestSeller?: boolean; flashSale?: boolean; search?: string; limit?: number }) {
   const constraints: any[] = [orderBy('createdAt', 'desc')];
   if (opts?.category) constraints.unshift(where('category', '==', opts.category));
+  if (opts?.storeId) constraints.unshift(where('storeId', '==', opts.storeId));
   if (opts?.featured) constraints.unshift(where('isFeatured', '==', true));
   if (opts?.bestSeller) constraints.unshift(where('isBestSeller', '==', true));
   if (opts?.flashSale) constraints.unshift(where('isFlashSale', '==', true));
@@ -95,12 +96,27 @@ export async function getUserOrders(userId: string): Promise<Order[]> {
   return docsToData<Order>((await getDocs(q)).docs);
 }
 
-export async function createOrder(order: Omit<Order, 'id' | 'orderNumber' | 'createdAt'>): Promise<string> {
+export async function createOrder(order: {
+  buyerId: string;
+  buyerName: string;
+  items: OrderItem[];
+  shippingAddress: Address;
+  paymentMethod: string;
+  deliveryMethod: string;
+  subtotal: number;
+  shippingFee: number;
+  discount: number;
+  total: number;
+  couponCode?: string;
+  storeIds?: string[];
+}): Promise<string> {
   const orderNumber = `ORD-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
   const ref = await addDoc(collection(db, 'orders'), {
     ...order,
     orderNumber,
-    status: 'confirmed',
+    status: 'confirmed' as OrderStatus,
+    timeline: [{ status: 'confirmed', timestamp: new Date().toISOString(), description: 'Order placed' }],
+    estimatedDelivery: null,
     createdAt: serverTimestamp(),
   });
   return ref.id;

@@ -5,8 +5,23 @@ dist/
 *.jks
 *.keystore
 .env
+.env.example
 .env.local
 .env.production
 google-services.json
 GoogleService-Info.plist
 .firebase/
+
+# Android build outputs
+apps/mobile/android/.gradle/
+apps/mobile/android/build/
+apps/mobile/android/app/build/
+apps/mobile/android/app/.cxx/
+apps/mobile/android/app/src/main/assets/
+apps/mobile/android/captures/
+
+# Metro / bundler bundle output (not config)
+apps/mobile/index.js
+
+# Expo downloads
+*.tgz

@@ -1,32 +1,41 @@
-import { useState, useEffect } from 'react';
+'use client';
+
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { getReviews, getAverageRating, addReview } from '../firebase/firestore';
 import type { Review } from '../types/models';
 
-export function useReviews(productId: string) {
-  const [reviews, setReviews] = useState<Review[]>([]);
-  const [average, setAverage] = useState(0);
-  const [count, setCount] = useState(0);
-  const [loading, setLoading] = useState(true);
+export function useReviews(productId: string | undefined) {
+  return useQuery({
+    queryKey: ['reviews', productId],
+    queryFn: async () => {
+      if (!productId) return { reviews: [] as Review[], average: 0, count: 0 };
+      const [reviews, { average, count }] = await Promise.all([
+        getReviews(productId),
+        getAverageRating(productId),
+      ]);
+      return { reviews, average, count };
+    },
+    enabled: !!productId,
+    staleTime: 30_000,
+  });
+}
 
-  useEffect(() => {
-    if (!productId) return;
-    Promise.all([getReviews(productId), getAverageRating(productId)])
-      .then(([r, { average: avg, count: c }]) => {
-        setReviews(r);
-        setAverage(avg);
-        setCount(c);
-      })
-      .finally(() => setLoading(false));
-  }, [productId]);
+export function useSubmitReview() {
+  const queryClient = useQueryClient();
 
-  const submitReview = async (data: Omit<Review, 'id' | 'createdAt'>) => {
-    await addReview(data);
-    // Refresh
-    const [r, { average: avg, count: c }] = await Promise.all([getReviews(productId), getAverageRating(productId)]);
-    setReviews(r);
-    setAverage(avg);
-    setCount(c);
-  };
-
-  return { reviews, average, count, loading, submitReview };
+  return useMutation({
+    mutationFn: async (data: {
+      productId: string;
+      userId: string;
+      rating: number;
+      comment: string;
+      userName: string;
+    }) => {
+      return addReview(data);
+    },
+    onSuccess: (_, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['reviews', variables.productId] });
+      queryClient.invalidateQueries({ queryKey: ['product', variables.productId] });
+    },
+  });
 }
